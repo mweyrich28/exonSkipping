@@ -19,14 +19,18 @@ public class Main {
         String outPath = ns.getString("out");
 
         String[] paths = {
-            // "/home/malte/projects/gobi/exonSkipping/gtfFiles/Homo_sapiens.GRCh37.67.gtf",
-            "/home/malte/projects/gobi/exonSkipping/gtfFiles/gencode.v10.annotation.gtf"
+            "/home/malte/projects/gobi/exonSkipping/gtfFiles/Homo_sapiens.GRCh37.67.gtf",
+            "/home/malte/projects/gobi/exonSkipping/gtfFiles/gencode.v10.annotation.gtf",
+            "/home/malte/projects/gobi/exonSkipping/gtfFiles/example_in.gtf"
         };
 
         Genome g = new Genome();
-        for (String p: paths) {
-           g.readGTF(p);
-        }
+        // NOTE: potentially create own gtfReader class that returns Genomes based on task
+        g.readGTFCDS(paths[2]);
+        g.generateESSE();
+
+
         System.out.println();
+
     }
 }

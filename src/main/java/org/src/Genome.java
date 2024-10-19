@@ -16,6 +16,12 @@ public class Genome {
         this.proteinCodingGenes = new ArrayList<>();
     }
 
+    public Genome(String name, String version) {
+        this.name = name;
+        this.version = version;
+        this.proteinCodingGenes = new ArrayList<>();
+    }
+
     public String getName() {
         return name;
     }
@@ -36,13 +42,13 @@ public class Genome {
         return proteinCodingGenes;
     }
 
-    public void setProteinCodingGenes(ArrayList<Gene> proteinCodingGenes) {
-        this.proteinCodingGenes = proteinCodingGenes;
+    public void generateESSE() {
+        for (Gene gene : proteinCodingGenes) {
+            gene.generateIntrons();
+        }
     }
 
-    public void readGTF(String pathToGtf) throws IOException {
-        ArrayList<Gene> proteinCodingGenes = new ArrayList<>();
-
+    public void readGTFCDS(String pathToGtf) throws IOException {
         // get lines of gtf
         ArrayList<String> lines = FileUtils.readLines(new File(pathToGtf));
 
@@ -53,8 +59,7 @@ public class Genome {
         Gene currGene = null;
         int cdsCounter = 0;
 
-        System.out.println(pathToGtf);
-        for (int i = 0; i < lines.size()-1; i++) {
+        for (int i = 0; i < lines.size() - 1; i++) {
             String currLine = lines.get(i);
 
             // skip potential comments
@@ -74,13 +79,18 @@ public class Genome {
                 attributeMap.put(entryComponent[0].trim(), entryComponent[1].replaceAll("\"", "").trim());
             }
 
-            // get geneId of current line
-            String geneId = attributeMap.get("gene_id");
+            // get newGeneId of current line
+            String newGeneId = attributeMap.get("gene_id");
 
             // check if we hit a new gene
-            if (currGene == null || !geneId.equals(currGene.getGeneId())) {
+            if (currGene == null || !newGeneId.equals(currGene.getGeneId())) {
                 // update gene and continue with next gtf line
-                currGene = new Gene(geneId, Integer.parseInt(mainComponents[3]), Integer.parseInt(mainComponents[4]));
+                int geneStart = Integer.parseInt(mainComponents[3]);
+                int geneEnd = Integer.parseInt(mainComponents[4]);
+                String geneName = attributeMap.get("gene_name");
+                String chr = mainComponents[0];
+                char strand = mainComponents[6].charAt(0);
+                currGene = new Gene(newGeneId, geneStart, geneEnd, geneName, chr, strand);
 
                 continue;
             }
@@ -97,7 +107,7 @@ public class Genome {
 
                     cdsCounter = 0; // reset cdsCounter
                     // add new transcript to current gene
-                    currGene.addTranscript(new Transcript(attributeMap.get("transcript_id"), mainComponents[6].charAt(0)));
+                    currGene.addTranscript(new Transcript(attributeMap.get("transcript_id")));
                     // add cds to current transcript
                     currGene.getLastTranscript().addCds(
                             attributeMap.get(cdsIdKey),
@@ -122,7 +132,7 @@ public class Genome {
 
                     cdsCounter = 0; // reset cdsCounter
                     // add new transcript to current gene
-                    currGene.addTranscript(new Transcript(attributeMap.get("transcript_id"), mainComponents[6].charAt(0)));
+                    currGene.addTranscript(new Transcript(attributeMap.get("transcript_id")));
                     // add cds to current transcript
                     currGene.getLastTranscript().addCds(
                             attributeMap.get(cdsIdKey),

@@ -12,4 +12,20 @@ public class Cds {
         this.end = end;
         this.pos = pos;
     }
+
+    public String getId() {
+        return id;
+    }
+
+    public int getStart() {
+        return start;
+    }
+
+    public int getEnd() {
+        return end;
+    }
+
+    public int getPos() {
+        return pos;
+    }
 }
