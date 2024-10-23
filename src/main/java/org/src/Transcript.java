@@ -10,9 +10,11 @@ public class Transcript {
     private final HashMap<Integer, CodingDnaSequence> cdsStartIndices;
     private final HashMap<String , CodingDnaSequence> cdsIdMap;
     private final ArrayList<CodingDnaSequence> cdsList;
+    private final String transcriptType;
 
-    public Transcript(String transcript_id) {
-        this.transcriptId = transcript_id;
+    public Transcript(String transcriptId, String transcriptType) {
+        this.transcriptId = transcriptId;
+        this.transcriptType = transcriptType;
         this.cdsEndIndices = new HashMap<>();
         this.cdsStartIndices = new HashMap<>();
         this.cdsIdMap = new HashMap<>();

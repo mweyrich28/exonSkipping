@@ -27,9 +27,8 @@ public class Main {
 
         Genome g = new Genome();
         // NOTE: potentially create own gtfReader class that returns Genomes based on task
-        g.readGTFCDS(paths[2]);
+        g.readGTFCDS(paths[3]);
         g.generateESSE();
-
-
+        System.out.println();
     }
 }

@@ -14,6 +14,8 @@ public class Gene {
     private final String chr;
     private final char strand;
 
+    private int nTrans = 0; // 0 per default
+
     public Gene(String geneId, int start, int end, String geneName, String chr, char strand) {
         this.geneId = geneId;
         this.geneName = geneName;
@@ -100,9 +102,6 @@ public class Gene {
                 boolean hasCdsInFront = cdsEnds.containsKey(intronStart - 1);
                 boolean hasCdsBehind = cdsStarts.containsKey(intronEnd + 1);
 
-                // init a set which stores the cds per currTranscript
-                HashSet<String> cdsIDsPerTranscript = new HashSet<>();
-
                 if (hasCdsInFront && hasCdsBehind) {
                     // add pos of intron
                     SV_INTRON.add(intronStart + ":" + (intronEnd + 1));
@@ -114,21 +113,25 @@ public class Gene {
                     // get offset / look if there are cds in between cdsFront and cdsBehind
                     int offset = cdsBehind.getPos() - cdsFront.getPos();
 
-                    // update max min exons
-                    if (offset >= maxSkippedExons) {
-                        maxSkippedExons = offset;
-                    }
-
-                    if (offset <= minSkippedExons) {
-                        minSkippedExons = offset;
-                    }
 
                     if (offset != 1) {
                         // set flag that we discovered at least one WT
                         atLeastOneWT = true;
                         ArrayList<CodingDnaSequence> cdsList = currTranscript.getCdsList();
 
+                        // since we are in a WT, update exon stats
+                        int skippedExons = offset - 1;
+                        // update maxSkippedExons
+                        if (skippedExons > maxSkippedExons) {
+                            maxSkippedExons = skippedExons;
+                        }
+                        // update minSkippedExons
+                        if (skippedExons < minSkippedExons) {
+                            minSkippedExons = skippedExons;
+                        }
+
                         // add all introns of WT to WT_INTRON and all cdsids/prot_ids to WT_prots
+                        int skippedBases = 0;
                         for (int i = cdsFront.getPos() ; i < cdsBehind.getPos(); i++) {
                             int wtIntronStart = cdsList.get(i).getEnd() + 1;
                             int wtIntronEnd = cdsList.get(i+1).getStart();
@@ -138,12 +141,12 @@ public class Gene {
                             WT_PROTS.add(cdsFront.getId());
                             WT_PROTS.add(cdsBehind.getId());
 
-                            cdsIDsPerTranscript.add(cdsFront.getId());
-                            cdsIDsPerTranscript.add(cdsBehind.getId());
+                            if (i > cdsFront.getPos() && i < cdsBehind.getPos()) {
+                                skippedBases += cdsList.get(i).getEnd() - cdsList.get(i).getStart() + 1;
+                            }
                         }
 
                         // update max min bases
-                        int skippedBases = getSkippedBases(currTranscript, cdsIDsPerTranscript);
 
                         if (skippedBases >= maxSkippedBases) {
                             maxSkippedBases = skippedBases;
@@ -165,8 +168,8 @@ public class Gene {
                 String symbol = this.geneName;
                 String chr = this.chr;
                 char strand = this.strand;
-                int nprots = getNprots();
-                int ntrans = getNtrans();
+                int nprots = this.transcripts.size();
+                int ntrans = this.nTrans;
                 String SVentry = String.join("|", SV_INTRON);
                 String WTentry = String.join("|", WT_INTRON);
                 String SVprotsEntry = String.join("|", SV_PROTS);
@@ -175,40 +178,27 @@ public class Gene {
                 int maxSkippedExonsEntry = maxSkippedExons;
                 int minSkippedBasesEntry = minSkippedBases;
                 int maxSkippedBasesEntry = maxSkippedBases;
-                System.out.print(geneId + "\t");
-                System.out.print(symbol + "\t");
-                System.out.print(chr + "\t");
-                System.out.print(strand + "\t");
-                System.out.print(nprots + "\t"); // transcipts wo cds gibt die als protein exixtieren
-                System.out.print(ntrans + "\t"); //
-                System.out.print(SVentry + "\t");
-                System.out.print(WTentry + "\t");
-                System.out.print(SVprotsEntry + "\t");
-                System.out.print(WTprotsEntry + "\t");
-                System.out.print(minSkippedExonsEntry + "\t"); // TODO
-                System.out.print(maxSkippedExonsEntry + "\t"); // TODO
-                System.out.print(minSkippedBasesEntry + "\t"); // TODO
-                System.out.print(maxSkippedBasesEntry); // TODO
-                System.out.println();
+                // System.out.print(geneId + "\t");
+                // System.out.print(symbol + "\t");
+                // System.out.print(chr + "\t");
+                // System.out.print(strand + "\t");
+                // System.out.print(nprots + "\t");
+                // System.out.print(ntrans + "\t");
+                // System.out.print(SVentry + "\t");
+                // System.out.print(WTentry + "\t");
+                // System.out.print(SVprotsEntry + "\t");
+                // System.out.print(WTprotsEntry + "\t");
+                // System.out.print(minSkippedExonsEntry + "\t");
+                // System.out.print(maxSkippedExonsEntry + "\t");
+                // System.out.print(minSkippedBasesEntry + "\t"); // TODO
+                // System.out.print(maxSkippedBasesEntry); // TODO
+                // System.out.println();
             }
         }
     }
 
-    public int getSkippedBases(Transcript transcript, HashSet<String> Ids) {
-        int skippedBases = 0;
-        for (String cdsId: Ids) {
-            CodingDnaSequence cds = transcript.getCdsIdMap().get(cdsId);
-            skippedBases += cds.getEnd() - cds.getStart();
-        }
-        return skippedBases;
-    }
-
-    public int getNprots() {
-        return 1;
-    }
-
-    public int getNtrans() {
-        return transcripts.size();
+    public void incnTrans() {
+        this.nTrans++;
     }
 
     public char getStrand() {

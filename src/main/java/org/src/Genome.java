@@ -75,6 +75,8 @@ public class Genome {
         // sanity check vars
         Gene currGene = null;
         int cdsCounter = 0;
+        int nTrans = 0;
+        String lastTranscriptId = null;
 
         for (int i = 0; i < lines.size() - 1; i++) {
             String currLine = lines.get(i);
@@ -106,20 +108,20 @@ public class Genome {
             }
 
             // only add cds to current transcript
+            String transcriptId = parseAttributes(attributeEntries,"transcript_id");
             if (mainComponents[2].equals("CDS")) {
                 String cdsIdKey = isGenecode ? "ccdsid" : "protein_id";
                 String cdsId = parseAttributes(attributeEntries, cdsIdKey);
                 // check if we are in a new transcript
                 if(currGene.getTranscripts().isEmpty()) { // if gene transcripts are empty, just add new transcript
 
-                    // in this case we can add the currGene to Genome.genes
-                    // this leads to some duplicated code in the else case, but it is easier that way
+                    // add gene to genome (based on if it is p coding or not)
                     this.proteinCodingGenes.add(currGene);
 
                     cdsCounter = 0; // reset cdsCounter
 
                     // add new transcript to current gene
-                    Transcript transcript = new Transcript(parseAttributes(attributeEntries,"transcript_id"));
+                    Transcript transcript = new Transcript(transcriptId, mainComponents[2]);
                     currGene.addTranscript(transcript);
 
                     // add cds to current transcript
@@ -132,7 +134,7 @@ public class Genome {
                     cdsCounter++;
                 }
                 // else check if we are still in the same transcript
-                else if (parseAttributes(attributeEntries, "transcript_id").equals(currGene.getLastTranscript().getTranscriptId())) {
+                else if (transcriptId.equals(currGene.getLastTranscript().getTranscriptId())) {
                     currGene.getLastTranscript().addCds(
                             cdsId,
                             Integer.parseInt(mainComponents[3]),
@@ -145,7 +147,7 @@ public class Genome {
                 else {
                     cdsCounter = 0; // reset cdsCounter
                     // add new transcript to current gene
-                    currGene.addTranscript(new Transcript(parseAttributes(attributeEntries, "transcript_id")));
+                    currGene.addTranscript(new Transcript(transcriptId, mainComponents[2]));
                     // add cds to current transcript
                     currGene.getLastTranscript().addCds(
                             cdsId,
@@ -154,6 +156,15 @@ public class Genome {
                             cdsCounter
                     );
                     cdsCounter++;
+                }
+            }
+
+            // here we increment the ntrans count, we currently don't need to save exons.
+            // by only having a count, we save space
+            if (mainComponents[2].equals("CDS") || mainComponents[2].equals("exon")) {
+                if (!(transcriptId.equals(lastTranscriptId))) {
+                    currGene.incnTrans();
+                    lastTranscriptId = transcriptId;
                 }
             }
         }
