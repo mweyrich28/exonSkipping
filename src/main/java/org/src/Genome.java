@@ -5,7 +5,6 @@ import org.src.utils.FileUtils;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
 
 public class Genome {
     private String name;
@@ -52,6 +51,20 @@ public class Genome {
         }
     }
 
+    public String parseAttributes(String[] attributeEntries, String attributeName) {
+        for (int i = 0; i < attributeEntries.length; i++) {
+            String trimmedEntry = attributeEntries[i].trim();
+
+            int posSpace = trimmedEntry.indexOf(' ');
+            String attributeKey = trimmedEntry.substring(0, posSpace);
+            String attributeVal = trimmedEntry.substring(posSpace + 2, trimmedEntry.length() - 1);
+            if (attributeKey.equals(attributeName)) {
+                return attributeVal;
+            }
+        }
+        return null;
+    }
+
     public void readGTFCDS(String pathToGtf) throws IOException {
         // get lines of gtf
         ArrayList<String> lines = FileUtils.readLines(new File(pathToGtf));
@@ -74,24 +87,17 @@ public class Genome {
             // extract main components (line split by \t)
             String[] mainComponents = currLine.split("\t");
             // split attributes again at ";"
-            String[] attributes = mainComponents[mainComponents.length - 1].split(";");
-
-            // parse attributes into hashmap
-            HashMap<String, String> attributeMap = new HashMap<>();
-            for(String entry: attributes) {
-                String[] entryComponent = entry.trim().split(" ");
-                attributeMap.put(entryComponent[0].trim(), entryComponent[1].replaceAll("\"", "").trim());
-            }
+            String[] attributeEntries = mainComponents[mainComponents.length - 1].split(";");
 
             // get newGeneId of current line
-            String newGeneId = attributeMap.get("gene_id");
+            String newGeneId = parseAttributes(attributeEntries, "gene_id");
 
             // check if we hit a new gene
             if (currGene == null || !newGeneId.equals(currGene.getGeneId())) {
                 // update gene and continue with next gtf line
                 int geneStart = Integer.parseInt(mainComponents[3]);
                 int geneEnd = Integer.parseInt(mainComponents[4]);
-                String geneName = attributeMap.get("gene_name");
+                String geneName = parseAttributes(attributeEntries, "gene_name");
                 String chr = mainComponents[0];
                 char strand = mainComponents[6].charAt(0);
                 currGene = new Gene(newGeneId, geneStart, geneEnd, geneName, chr, strand);
@@ -102,7 +108,8 @@ public class Genome {
             // only add cds to current transcript
             if (mainComponents[2].equals("CDS")) {
                 String cdsIdKey = isGenecode ? "ccdsid" : "protein_id";
-                // check if we are in a new transcirpt
+                String cdsId = parseAttributes(attributeEntries, cdsIdKey);
+                // check if we are in a new transcript
                 if(currGene.getTranscripts().isEmpty()) { // if gene transcripts are empty, just add new transcript
 
                     // in this case we can add the currGene to Genome.genes
@@ -110,11 +117,14 @@ public class Genome {
                     this.proteinCodingGenes.add(currGene);
 
                     cdsCounter = 0; // reset cdsCounter
+
                     // add new transcript to current gene
-                    currGene.addTranscript(new Transcript(attributeMap.get("transcript_id")));
+                    Transcript transcript = new Transcript(parseAttributes(attributeEntries,"transcript_id"));
+                    currGene.addTranscript(transcript);
+
                     // add cds to current transcript
                     currGene.getLastTranscript().addCds(
-                            attributeMap.get(cdsIdKey),
+                            cdsId,
                             Integer.parseInt(mainComponents[3]),
                             Integer.parseInt(mainComponents[4]),
                             cdsCounter
@@ -122,9 +132,9 @@ public class Genome {
                     cdsCounter++;
                 }
                 // else check if we are still in the same transcript
-                else if (attributeMap.get("transcript_id").equals(currGene.getLastTranscript().getTranscript_id())) {
+                else if (parseAttributes(attributeEntries, "transcript_id").equals(currGene.getLastTranscript().getTranscriptId())) {
                     currGene.getLastTranscript().addCds(
-                            attributeMap.get(cdsIdKey),
+                            cdsId,
                             Integer.parseInt(mainComponents[3]),
                             Integer.parseInt(mainComponents[4]),
                             cdsCounter
@@ -135,10 +145,10 @@ public class Genome {
                 else {
                     cdsCounter = 0; // reset cdsCounter
                     // add new transcript to current gene
-                    currGene.addTranscript(new Transcript(attributeMap.get("transcript_id")));
+                    currGene.addTranscript(new Transcript(parseAttributes(attributeEntries, "transcript_id")));
                     // add cds to current transcript
                     currGene.getLastTranscript().addCds(
-                            attributeMap.get(cdsIdKey),
+                            cdsId,
                             Integer.parseInt(mainComponents[3]),
                             Integer.parseInt(mainComponents[4]),
                             cdsCounter

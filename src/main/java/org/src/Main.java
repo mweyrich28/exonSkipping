@@ -21,7 +21,8 @@ public class Main {
         String[] paths = {
             "/home/malte/projects/gobi/exonSkipping/gtfFiles/Homo_sapiens.GRCh37.67.gtf",
             "/home/malte/projects/gobi/exonSkipping/gtfFiles/gencode.v10.annotation.gtf",
-            "/home/malte/projects/gobi/exonSkipping/gtfFiles/example_in.gtf"
+            "/home/malte/projects/gobi/exonSkipping/gtfFiles/example_in.gtf",
+            "/home/malte/projects/gobi/exonSkipping/gtfFiles/Homo_sapiens.GRCh38.86.gtf"
         };
 
         Genome g = new Genome();

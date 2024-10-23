@@ -5,15 +5,17 @@ import java.util.Collections;
 import java.util.HashMap;
 
 public class Transcript {
-    private final String transcript_id;
+    private final String transcriptId;
     private final HashMap<Integer, CodingDnaSequence> cdsEndIndices;
     private final HashMap<Integer, CodingDnaSequence> cdsStartIndices;
+    private final HashMap<String , CodingDnaSequence> cdsIdMap;
     private final ArrayList<CodingDnaSequence> cdsList;
 
     public Transcript(String transcript_id) {
-        this.transcript_id = transcript_id;
+        this.transcriptId = transcript_id;
         this.cdsEndIndices = new HashMap<>();
         this.cdsStartIndices = new HashMap<>();
+        this.cdsIdMap = new HashMap<>();
         this.cdsList = new ArrayList<>();
     }
 
@@ -23,11 +25,12 @@ public class Transcript {
         // easily check if transcript has a cds ending at I_s / starting at I_e
         cdsEndIndices.put(end, cds);
         cdsStartIndices.put(start, cds);
+        cdsIdMap.put(cds.getId(), cds);
         cdsList.add(cds);
     }
 
-    public String getTranscript_id() {
-        return transcript_id;
+    public String getTranscriptId() {
+        return transcriptId;
     }
 
     public ArrayList<CodingDnaSequence> getCdsList() {
@@ -46,4 +49,7 @@ public class Transcript {
         Collections.reverse(this.cdsList);
     }
 
+    public HashMap<String, CodingDnaSequence> getCdsIdMap() {
+        return cdsIdMap;
+    }
 }

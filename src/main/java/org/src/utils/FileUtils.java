@@ -10,7 +10,6 @@ public class FileUtils{
     public static ArrayList<String> readLines(File r) throws IOException {
         ArrayList<String> fileLines = new ArrayList<String>();
         BufferedReader buff = new BufferedReader(new FileReader(r));
-
         String line;
         while((line = buff.readLine()) != null){
             fileLines.add(line);

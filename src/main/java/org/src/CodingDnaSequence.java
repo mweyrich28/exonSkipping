@@ -41,16 +41,14 @@ public class CodingDnaSequence {
         if (o == null || getClass() != o.getClass()) return false;  // Check if the other object is a Cds instance
 
         CodingDnaSequence cds = (CodingDnaSequence) o;
-
         return start == cds.start &&
                 end == cds.end &&
-                pos == cds.pos &&
                 Objects.equals(id, cds.id);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, start, end, pos);
+        return Objects.hash(id, start, end);
     }
 
     @Override
