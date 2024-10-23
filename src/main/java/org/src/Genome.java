@@ -44,7 +44,11 @@ public class Genome {
 
     public void generateESSE() {
         for (Gene gene : proteinCodingGenes) {
+            if (gene.getStrand() == '-') {
+               gene.invertTranscripts();
+            }
             gene.generateIntrons();
+            gene.getEvents();
         }
     }
 
@@ -98,11 +102,11 @@ public class Genome {
             // only add cds to current transcript
             if (mainComponents[2].equals("CDS")) {
                 String cdsIdKey = isGenecode ? "ccdsid" : "protein_id";
-                // check if we are in a new transcipt
+                // check if we are in a new transcirpt
                 if(currGene.getTranscripts().isEmpty()) { // if gene transcripts are empty, just add new transcript
 
                     // in this case we can add the currGene to Genome.genes
-                    // this leads to some duplicated code in the else case but it is easier that way
+                    // this leads to some duplicated code in the else case, but it is easier that way
                     this.proteinCodingGenes.add(currGene);
 
                     cdsCounter = 0; // reset cdsCounter
@@ -129,7 +133,6 @@ public class Genome {
                 }
                 // else we add a new transcript
                 else {
-
                     cdsCounter = 0; // reset cdsCounter
                     // add new transcript to current gene
                     currGene.addTranscript(new Transcript(attributeMap.get("transcript_id")));
@@ -141,7 +144,6 @@ public class Genome {
                             cdsCounter
                     );
                     cdsCounter++;
-
                 }
             }
         }

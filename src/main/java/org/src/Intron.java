@@ -16,4 +16,18 @@ public class Intron {
     public int getStart() {
         return start;
     }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;  // Same object reference
+        if (obj == null || getClass() != obj.getClass()) return false;
+
+        Intron intron = (Intron) obj;
+        return start == intron.start && end == intron.end;
+    }
+
+    @Override
+    public int hashCode() {
+        return 31 * start + end;
+    }
 }

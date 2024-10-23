@@ -30,7 +30,5 @@ public class Main {
         g.generateESSE();
 
 
-        System.out.println();
-
     }
 }
