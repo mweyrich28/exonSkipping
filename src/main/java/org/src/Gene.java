@@ -58,7 +58,6 @@ public class Gene {
 
     public void generateIntrons() {
         for (Transcript transcript : transcripts) {
-            ArrayList<CodingDnaSequence> cdsList = transcript.getCdsList();
             for (int i = 0; i < transcript.getCdsList().size() - 1; i++) {
                 int intronStart = transcript.getCdsList().get(i).getEnd() + 1;
                 int intronEnd = transcript.getCdsList().get(i + 1).getStart() - 1;

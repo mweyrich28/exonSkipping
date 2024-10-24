@@ -43,6 +43,12 @@ public class Genome {
 
     public ArrayList<String> generateESSE() {
         ArrayList<String> events = new ArrayList<>();
+        StringBuilder sb = new StringBuilder();
+        sb.append("id\t").append("symbol\t").append("chr\t").append("strand\t").append("nprots\t").append("ntrans\t").append("SV\t").append("WT\t").append("SV_prots\t").append("WT_prots\t").append("min_skipped_exon\t").append("max_skipped_exon\t").append("min_skipped_bases\t").append("max_skipped_bases");
+
+        // add colNames
+        events.add(sb.toString());
+
         for (Gene gene : proteinCodingGenes) {
             if (gene.getStrand() == '-') {
                gene.invertTranscripts();
@@ -61,7 +67,17 @@ public class Genome {
 
             int posSpace = trimmedEntry.indexOf(' ');
             String attributeKey = trimmedEntry.substring(0, posSpace);
-            String attributeVal = trimmedEntry.substring(posSpace + 2, trimmedEntry.length() - 1);
+
+            String attributeVal;
+
+            if (trimmedEntry.endsWith("\"")) {
+                attributeVal = trimmedEntry.substring(posSpace + 2, trimmedEntry.length() - 1);
+            }
+            // there are entries like exon_number, which are not encapsulated in quotes
+            else {
+                attributeVal = trimmedEntry.substring(posSpace + 1, trimmedEntry.length() - 1);
+            }
+
             if (attributeKey.equals(attributeName)) {
                 return attributeVal;
             }
@@ -73,14 +89,10 @@ public class Genome {
         // get lines of gtf
         ArrayList<String> lines = FileUtils.readExonLines(new File(pathToGtf));
 
-        // determine gtf type
-        boolean isGenecode = lines.get(0).startsWith("##");
-
         // sanity check vars
-        Gene currGene = null;
-        int cdsCounter = 0;
-        int nTrans = 0;
+        Gene lastGeneId = null;
         String lastTranscriptId = null;
+        int cdsCounter = 0;
 
         for (int i = 0; i < lines.size() - 1; i++) {
             String currLine = lines.get(i);
@@ -99,14 +111,14 @@ public class Genome {
             String newGeneId = parseAttributes(attributeEntries, "gene_id");
 
             // check if we hit a new gene
-            if (currGene == null || !newGeneId.equals(currGene.getGeneId())) {
+            if (lastGeneId == null || !newGeneId.equals(lastGeneId.getGeneId())) {
                 // update gene and continue with next gtf line
                 int geneStart = Integer.parseInt(mainComponents[3]);
                 int geneEnd = Integer.parseInt(mainComponents[4]);
                 String geneName = parseAttributes(attributeEntries, "gene_name");
                 String chr = mainComponents[0];
                 char strand = mainComponents[6].charAt(0);
-                currGene = new Gene(newGeneId, geneStart, geneEnd, geneName, chr, strand);
+                lastGeneId = new Gene(newGeneId, geneStart, geneEnd, geneName, chr, strand);
 
                 continue;
             }
@@ -114,22 +126,30 @@ public class Genome {
             // only add cds to current transcript
             String transcriptId = parseAttributes(attributeEntries,"transcript_id");
             if (mainComponents[2].equals("CDS")) {
-                String cdsIdKey = isGenecode ? "ccdsid" : "protein_id";
+                String cdsIdKey = "protein_id";
                 String cdsId = parseAttributes(attributeEntries, cdsIdKey);
+                if (cdsId == null) {
+                    // fall back to ccds id
+                    cdsId = parseAttributes(attributeEntries, "ccdsid");
+                }
+                if (cdsId == null) {
+                    // fall back to empty id
+                    cdsId = "NaN";
+                }
                 // check if we are in a new transcript
-                if(currGene.getTranscripts().isEmpty()) { // if gene transcripts are empty, just add new transcript
+                if(lastGeneId.getTranscripts().isEmpty()) { // if gene transcripts are empty, just add new transcript
 
                     // add gene to genome (based on if it is p coding or not)
-                    this.proteinCodingGenes.add(currGene);
+                    this.proteinCodingGenes.add(lastGeneId);
 
                     cdsCounter = 0; // reset cdsCounter
 
                     // add new transcript to current gene
                     Transcript transcript = new Transcript(transcriptId, mainComponents[2]);
-                    currGene.addTranscript(transcript);
+                    lastGeneId.addTranscript(transcript);
 
                     // add cds to current transcript
-                    currGene.getLastTranscript().addCds(
+                    lastGeneId.getLastTranscript().addCds(
                             cdsId,
                             Integer.parseInt(mainComponents[3]),
                             Integer.parseInt(mainComponents[4]),
@@ -138,8 +158,8 @@ public class Genome {
                     cdsCounter++;
                 }
                 // else check if we are still in the same transcript
-                else if (transcriptId.equals(currGene.getLastTranscript().getTranscriptId())) {
-                    currGene.getLastTranscript().addCds(
+                else if (transcriptId.equals(lastGeneId.getLastTranscript().getTranscriptId())) {
+                    lastGeneId.getLastTranscript().addCds(
                             cdsId,
                             Integer.parseInt(mainComponents[3]),
                             Integer.parseInt(mainComponents[4]),
@@ -151,9 +171,9 @@ public class Genome {
                 else {
                     cdsCounter = 0; // reset cdsCounter
                     // add new transcript to current gene
-                    currGene.addTranscript(new Transcript(transcriptId, mainComponents[2]));
+                    lastGeneId.addTranscript(new Transcript(transcriptId, mainComponents[2]));
                     // add cds to current transcript
-                    currGene.getLastTranscript().addCds(
+                    lastGeneId.getLastTranscript().addCds(
                             cdsId,
                             Integer.parseInt(mainComponents[3]),
                             Integer.parseInt(mainComponents[4]),
@@ -167,7 +187,7 @@ public class Genome {
             // by only having a count, we save space
             if (mainComponents[2].equals("CDS") || mainComponents[2].equals("exon")) {
                 if (!(transcriptId.equals(lastTranscriptId))) {
-                    currGene.incnTrans();
+                    lastGeneId.incnTrans();
                     lastTranscriptId = transcriptId;
                 }
             }

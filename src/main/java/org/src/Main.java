@@ -14,26 +14,32 @@ public class Main {
         // add argparser
         ArgumentParser parser = ArgumentParsers.newFor("ExonSkipping").build().defaultHelp(true).description("Usage:\n\t-gtf <path-to-gtf>\n\t-out <path-to-out-tsv>");
         try {
-            parser.addArgument("-gtf").required(true).help("Path to Gene Transfer Format File");
-            parser.addArgument("-out").required(true).help("Specify Output File Name");
+            parser.addArgument("-gtf").required(true).help("Path to Gene Transfer Format File.");
+            parser.addArgument("-o").required(true).help("Specify Output File Name.");
             Namespace ns = parser.parseArgs(args);
             String gtfPath = ns.getString("gtf");
-            String outPath = ns.getString("out");
+            String outPath = ns.getString("o");
 
-            Genome g = new Genome();
+            Genome genome = new Genome();
             // NOTE: potentially create own gtfReader class that returns Genomes based on task
-            g.readGTFCDS(gtfPath);
-            ArrayList<String> events = g.generateESSE();
+            // genome.readGTFCDS("/home/malte/projects/gobi/exonSkipping/gtfFiles/gencode.v10.annotation.gtf");
+            // genome.readGTFCDS("/home/malte/projects/gobi/exonSkipping/gtfFiles/Homo_sapiens.GRCh38.86.gtf");
+            // genome.readGTFCDS("/home/malte/projects/gobi/exonSkipping/gtfFiles/example_in.gtf");
+
+            genome.readGTFCDS(gtfPath);
+            ArrayList<String> events = genome.generateESSE();
             FileUtils.writeFile(outPath, events);
         }
         // print usage entry if not all required args were provided
         catch (ArgumentParserException e) {
             System.out.println(
-            "exonSkipping.jar\n" +
-                    "Identifies ES-SE events of protein coding transcripts\n" +
-                    "    Usage\n" +
-                    "        -gtf <gtfPath.gtf> [required]\n" +
-                    "        -out <destinationPath.tsv> [required]\n"
+                    """
+                    exonSkipping.jar
+                    Identifies ES-SE events of protein coding transcripts
+                        Usage
+                            -gtf <gtfPath.gtf> [required]
+                            -o <destinationPath.tsv> [required]
+                    """
             );
             System.exit(1);
         }
