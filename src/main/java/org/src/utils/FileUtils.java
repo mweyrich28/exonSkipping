@@ -2,61 +2,55 @@ package org.src.utils;
 
 import java.io.*;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.function.Function;
 
 // Utils from Tutorium
 public class FileUtils{
-    public static ArrayList<String> readLines(File r) throws IOException {
-        ArrayList<String> fileLines = new ArrayList<String>();
+    public static ArrayList<String> readExonLines(File r) throws IOException {
+        ArrayList<String> fileLines = new ArrayList<>();
         BufferedReader buff = new BufferedReader(new FileReader(r));
         String line;
+        StringBuilder relevantCol = new StringBuilder();
+
         while((line = buff.readLine()) != null){
-            fileLines.add(line);
+            // only read in lines with CDS / exon
+            if (line.charAt(0) == '#') {
+                fileLines.add(line);
+                continue;
+            }
+
+            // save memory by selecting correct col based on tabCount
+            int tabCount = 0;
+            relevantCol.setLength(0); // reset sb
+            for (int i = 0; i < line.length(); i++) {
+                if (line.charAt(i) == '\t') {
+                    tabCount++;
+                }
+                else if (tabCount == 2) {
+                    relevantCol.append(line.charAt(i));
+                }
+
+                if ("exon".contentEquals(relevantCol) || "CDS".contentEquals(relevantCol)) {
+                    fileLines.add(line);
+                    break;
+                }
+
+                if (tabCount == 3) {
+                    break;
+                }
+            }
+
         }
         return fileLines;
     }
-    public static ArrayList<String[]> readTsv(File f, String sep) throws IOException {
-        ArrayList<String[]> rows = new ArrayList<String[]>();
-        BufferedReader buff = new BufferedReader(new FileReader(f));
-        String line;
-        while((line = buff.readLine()) != null){
-            String[] row = line.split(sep);
-            rows.add(row);
+
+    public static void writeFile(String fileName, ArrayList<String> content) throws IOException {
+        BufferedWriter bw = new BufferedWriter(new FileWriter(new File(fileName)));
+
+        for (int i = 0; i < content.size(); i++) {
+            bw.write(content.get(i));
+            bw.newLine();
         }
-        return rows;
-    }
-
-
-    public static <X,Y> HashMap<X, Y> readMap(File f, int keyCol, int valCol, String sep,
-                                              Function<String, X> convertKey,
-                                              Function<String, Y> convertVal) throws IOException{
-        if(keyCol == valCol){
-            System.out.println("KeyCol shouldn't be equal to valCol!");
-        }
-        HashMap<X, Y> filteredCols = new HashMap<>();
-        BufferedReader buff = new BufferedReader(new FileReader(f));
-
-        String line;
-        while((line = buff.readLine()) != null){
-            String[] row = line.split("\t");
-            X key = convertKey.apply(row[keyCol]);
-            Y val = convertVal.apply(row[valCol]);
-            filteredCols.put(key, val);
-        }
-        return filteredCols;
-    }
-    public static HashMap<String,String> readMap(File f, String sep)throws IOException{
-        Function<String, String> def = x -> x; // default function returns String
-        return readMap(f, 0, 1, sep, def, def);
-    }
-
-    public static void main(String[] args) throws IOException {
-        File f = new File("/home/malte/IdeaProjects/BioinformatikTutorium_FileUtils/src/utils/data.tsv");
-        HashMap<String, String> map = readMap(f, "\t");
-        System.out.println(map.keySet());
-        System.out.println(map.values());
-        readMap(f, 0 , 1, "\t", Integer::parseInt, Integer::parseInt);
+        bw.close();
     }
 }
 

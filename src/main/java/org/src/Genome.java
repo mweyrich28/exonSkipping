@@ -41,16 +41,20 @@ public class Genome {
         return proteinCodingGenes;
     }
 
-    public void generateESSE() {
+    public ArrayList<String> generateESSE() {
+        ArrayList<String> events = new ArrayList<>();
         for (Gene gene : proteinCodingGenes) {
             if (gene.getStrand() == '-') {
                gene.invertTranscripts();
             }
             gene.generateIntrons();
-            gene.getEvents();
+            events.addAll(gene.getEvents());
         }
+
+        return events;
     }
 
+    // TODO: improve for memory
     public String parseAttributes(String[] attributeEntries, String attributeName) {
         for (int i = 0; i < attributeEntries.length; i++) {
             String trimmedEntry = attributeEntries[i].trim();
@@ -67,7 +71,7 @@ public class Genome {
 
     public void readGTFCDS(String pathToGtf) throws IOException {
         // get lines of gtf
-        ArrayList<String> lines = FileUtils.readLines(new File(pathToGtf));
+        ArrayList<String> lines = FileUtils.readExonLines(new File(pathToGtf));
 
         // determine gtf type
         boolean isGenecode = lines.get(0).startsWith("##");

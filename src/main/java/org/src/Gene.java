@@ -72,7 +72,9 @@ public class Gene {
         return introns;
     }
 
-    public void getEvents() {
+    public ArrayList<String> getEvents() {
+        // store events here
+        ArrayList<String> events = new ArrayList<>();
         // for every intron check every transcript
         for (Intron intron : introns) {
             // start:end
@@ -112,7 +114,6 @@ public class Gene {
 
                     // get offset / look if there are cds in between cdsFront and cdsBehind
                     int offset = cdsBehind.getPos() - cdsFront.getPos();
-
 
                     if (offset != 1) {
                         // set flag that we discovered at least one WT
@@ -163,38 +164,31 @@ public class Gene {
                 }
             }
             if (atLeastOneWT) {
-                // get all relevant row data
-                String geneId = this.geneId;
-                String symbol = this.geneName;
-                String chr = this.chr;
-                char strand = this.strand;
-                int nprots = this.transcripts.size();
-                int ntrans = this.nTrans;
+                StringBuilder sb = new StringBuilder();
+
+                // Join SV and WT sets
                 String SVentry = String.join("|", SV_INTRON);
                 String WTentry = String.join("|", WT_INTRON);
                 String SVprotsEntry = String.join("|", SV_PROTS);
                 String WTprotsEntry = String.join("|", WT_PROTS);
-                int minSkippedExonsEntry = minSkippedExons;
-                int maxSkippedExonsEntry = maxSkippedExons;
-                int minSkippedBasesEntry = minSkippedBases;
-                int maxSkippedBasesEntry = maxSkippedBases;
-                // System.out.print(geneId + "\t");
-                // System.out.print(symbol + "\t");
-                // System.out.print(chr + "\t");
-                // System.out.print(strand + "\t");
-                // System.out.print(nprots + "\t");
-                // System.out.print(ntrans + "\t");
-                // System.out.print(SVentry + "\t");
-                // System.out.print(WTentry + "\t");
-                // System.out.print(SVprotsEntry + "\t");
-                // System.out.print(WTprotsEntry + "\t");
-                // System.out.print(minSkippedExonsEntry + "\t");
-                // System.out.print(maxSkippedExonsEntry + "\t");
-                // System.out.print(minSkippedBasesEntry + "\t"); // TODO
-                // System.out.print(maxSkippedBasesEntry); // TODO
-                // System.out.println();
+                sb.append(this.geneId).append("\t");
+                sb.append(this.geneName).append("\t");
+                sb.append(this.chr).append("\t");
+                sb.append(this.strand).append("\t");
+                sb.append(this.transcripts.size()).append("\t");
+                sb.append(this.nTrans).append("\t");
+                sb.append(SVentry).append("\t");
+                sb.append(WTentry).append("\t");
+                sb.append(SVprotsEntry).append("\t");
+                sb.append(WTprotsEntry).append("\t");
+                sb.append(minSkippedExons).append("\t");
+                sb.append(maxSkippedExons).append("\t");
+                sb.append(minSkippedBases).append("\t");
+                sb.append(maxSkippedBases);
+                events.add(sb.toString());
             }
         }
+        return events;
     }
 
     public void incnTrans() {
