@@ -37,9 +37,37 @@ build/
 ### Mac OS ###
 .DS_Store
 
-gtfFiles
 gtfFiles/
 gtfFiles/*
 
+results/
+results/*
+
+output_plot/
+output_plot/*
+
+report/auxiliary/
+report/auxiliary/*
+report/tables/
+report/tables/*
+report/base.aux
+report/base.bbl
+report/base.bcf
+report/base.blg
+report/base.fdb_latexmk
+report/base.fls
+report/base.log
+report/base.out
+report/base.run.xml
+report/base.synctex.gz
+report/math.sty
+report/online_supplement.pdf
+report/online_supplement.tex
+report/paper.sty
+report/references.bib
+
 .idea/
 .idea/*
+
+
+
