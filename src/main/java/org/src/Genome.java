@@ -187,7 +187,7 @@ public class Genome {
             // by only having a count, we save space
             if (mainComponents[2].equals("CDS") || mainComponents[2].equals("exon")) {
                 if (!(transcriptId.equals(lastTranscriptId))) {
-                    lastGeneId.incnTrans();
+                    lastGeneId.incTrans();
                     lastTranscriptId = transcriptId;
                 }
             }

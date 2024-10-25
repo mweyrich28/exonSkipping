@@ -142,6 +142,8 @@ public class Gene {
                             WT_PROTS.add(cdsBehind.getId());
 
                             if (i > cdsFront.getPos() && i < cdsBehind.getPos()) {
+                                // we are in a cds that was skipped
+                                // → get end - start + 1 = length → add to skipped bases
                                 skippedBases += cdsList.get(i).getEnd() - cdsList.get(i).getStart() + 1;
                             }
                         }
@@ -190,7 +192,7 @@ public class Gene {
         return events;
     }
 
-    public void incnTrans() {
+    public void incTrans() {
         this.nTrans++;
     }
 

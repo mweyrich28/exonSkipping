@@ -34,11 +34,13 @@ public class Main {
         catch (ArgumentParserException e) {
             System.out.println(
                     """
-                    exonSkipping.jar
-                    Identifies ES-SE events of protein coding transcripts
+                    USAGE: exonSkipping.jar
+                    Identifies ES-SE events of protein coding transcripts for a given gtf file.
                         Usage
                             -gtf <gtfPath.gtf> [required]
                             -o <destinationPath.tsv> [required]
+                        Help
+                            -h display help for parameters.
                     """
             );
             System.exit(1);

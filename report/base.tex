@@ -1,0 +1,145 @@
+\documentclass[12pt]{article}
+\usepackage{paper,math}
+\addbibresource{references.bib}
+
+\title{Genomorientierte Bioinformatik - Report ExonSkipping}
+\author{
+  Malte Weyrich
+}
+\date{\today}
+
+\hypersetup{
+  pdftitle = {Example Paper Title},
+  pdfauthor = {Author One, Author Two},
+}
+
+% Conditionally display thoughts (hide by switching to `\boolfalse`)
+\boolfalse{INCLUDECOMMENTS}
+\newcommand{\kyle}[1]{\coauthorComment[Kyle]{#1}}
+
+\begin{document}
+
+% Title Page -------------------------------------------------------------------
+\maketitle
+\begin{abstract}
+    \textbf{Exon Skipping Splicing Events} (\textit{ES-SE}) beschreiben, wie co- oder posttranslational
+    manche Exons eines Transkripts durch das Splei\ss osom herausgeschnitten oder übersprungen werden, während
+    in anderen Transkripten des selben Gens, diese weiterhin Teil der mRNA bleiben.
+    Die \textit{ES-SE} lassen sich anhand von \textbf{Gene Transfer Format} (\textit{gtf}) files,
+    also Genom Annotations Dateien ablesen und analysieren. 
+    Im Folgenden wird ein Programm zur Erkennung von allen \textit{ES-SE} innerhalb eines Genoms
+    anhand seiner Logik, Laufzeit und Ergebnisse Analysiert, wobei nur \textit{ES-SE} berücksichtigt werden,
+    die protein-kodierende Transkripte betreffen. Das Programm wurde auf allen verfügbaren
+    \textit{gtf} Dateien in $/mnt/biosoft/praktikum/genprakt/gtfs/$ ausgeführt.
+
+\end{abstract}
+
+\newpage
+
+
+% Paper ------------------------------------------------------------------------
+
+% ------------------------------------------------------------------------------
+\section{ES-SE Definition}
+In einem Gen kann jedes Transkript jeweils mehrere \textit{ES-SE} haben.
+Ein \textit{ES-SE} involviert immer jeweils mindestens eine \textbf{Splice Variant} (\textit{SV}) und einen 
+\textbf{Wild Type} (\textit{WT}). Beide dieser Begriffe beziehen sich auf Transkripte eines Gens $G$.
+Ein \textit{SV} ist ein Transkript $T_{SV}$, welches ein Intron $I$ mit Startposition $I_{S}$ und Endposition
+$I_{E}$ besitzt, was gleichzeitig bedeutet, dass es in $T_{SV}$ zwei Exons $A, B$ gibt,
+die $I$ flankieren. Somit endet $A$ bei $I_{S} - 1 = A_{E}$ und $B$ startet bei $I_{E} + 1 = B_{S}$.
+Zudem ist die Position $B_{pos} - A_{pos} = 1$, wobei sich $A_{pos}$ auf die Position von Exon $A$ relativ gesehen 
+zu allen anderen Exons von $T_{SV}$ bezieht.
+Ein \textit{WT} wäre nun ein weiteres Transkript $T_{WT}$ des selben Gens $G$, welches ebenfalls
+zwei Exons $C, D$ besitzt mit $C_{pos} < D_{pos}$, wobei $C_{E} = I_{S} - 1$ und $D_{S} = I_{E} + 1$, 
+jedoch gilt für $C, D$: $D_{pos} - C_{pos} \ge 1$. 
+Dies bedeutet, dass die Exons von $T_{WT}$ zwischen $C$ und $D$ in $T_{SV}$ herausgesplei\ss t wurden.
+
+\section{Java Programm}
+\subsection{Logik}
+Der Workflow der \textit{JAR} lässt sich in drei Schritte Aufteilen:
+\begin{enumerate}
+    \item[I] \textbf{Einlesen der \textit{gtf} Datei und Initialisierung der Datenstruktur:}
+
+        Zum einlesen wird die \textit{gtf} Datei zuerst nach relevanten Zeilen gefiltert, denn
+        für uns sind momentan nur Zeilen relevant, die in der 3. Spalte entweder
+        \textit{"exon"} oder \textit{"CDS"} stehen haben. Hierbei wird vermieden,
+        die Methode \textit{String.split("\textbackslash t")} zu verwenden.
+        Stattdessen wird in einem \textit{for loop} jedes Zeichen einzeln betrachtet.
+        Dabei werden Zeilen die mit einem \textit{"\#"} anfangen direkt übersprungen.
+        Für alle anderen Zeilen werden die Anzahl der \textit{tabs} gezählt und nach 
+        dem zweiten \textit{tab}, werden alle darauf folgenden Zeichen zu einem 
+        \textit{String} zusammen konkateniert, bis der dritte \textit{tab} 
+        erreicht wurde. Falls der entstandenen String $\in \left\{\text{"exon"}, \text{"CDS"} \right\}$, wird die 
+        Zeile einer \textit{ArrayList<String>} hinzugefügt, ansonsten wird mit der nächsten Zeile weiter gemacht. 
+        Diese Liste enthält am Ende alle relevanten Zeilen. 
+        Jede der relevanten Zeilen werden nun mit \textit{String.split("\textbackslash t")} in
+        ein \textit{String[] mainComponents} geschrieben. Die \textit{attributeColumn} wird aus
+        \textit{mainComponents} extrahiert (auch als ein \textit{String[]} Names \textit{attributes}),
+        indem man \textit{mainComponents[mainComponents.length - 1]} am \textit{";"} splitted.
+
+        Mit diesen zwei Komponenten pro Zeile wird als erstes die \textit{gene\_id} abgespeichert
+        und überprüft, ob wir eine neue \textit{gene\_id} erreicht haben. 
+        Falls ja, wird ein neues Gen erstellt. Für die darauf folgenden Zeilen wird überprüft,
+        ob wir ein neues Transkript erreicht haben. Neue Transkripte werden in einer
+        \textit{ArrayList<Transkript>} des dazugehörigen Gens abgespeichert. 
+        Transkripte wiederum besitzen eine \textit{ArrayList<CodingDnaSequence> cdsList} und zwei
+        \textit{HashMap<Integer, CodingDnaSequence>} \textit{cdsStartIndices}, \textit{cdsEndIndices}. Die Transkripte werden mit den dazugehörigen
+        \textit{CodingDnaSequence}'s befüllt, wobei für jede erstellte \textit{CodingDnaSequence} die Start- und 
+        Endposition in den jeweiligen \textit{HashMap}'s als Key auf das erstellte Objekt verweisen.
+        Zudem wird mit einer Zählvariable \textit{int cdsCount} die Position der \textit{CodingDnaSequence}'s
+        innerhalb des Transkripts in dem \textit{CodingDnaSequence} Objekt gespeichert.
+
+    \item[II] \textbf{Generieren der \textit{ES-SE}}
+
+        Zum generieren der \textit{ES-SE} werden als erstes für alle in dem Genom abgespeicherten
+        Gene, die dazugehörigen \textit{Introns} errechnet und in einem \textit{HashSet<Introns>} 
+        innerhalb des Gens abgespeichert. Dafür werden alle Transkripte eines Gens und deren
+        \textit{CodingDnaSequence}'s angeschaut. Die Introns werden dann mit jeweils
+        zwei \textit{CodingDnaSequence}'s berechnet
+        (Bei Genen die sich auf dem \textit{"-"} Strang befinden, müssen zuerst die 
+        die \textit{cdsList}'s aller Transkripte invertiert werden und die 
+        Positionen der \textit{CodingDnaSequence}'s neu berechnet werden.
+        Das ist später relevant für die Identifikation der \textit{WT}'s):
+    \begin{verbatim}
+for (Transcript transcript : transcripts) {
+    for (int i = 0; i < transcript.getCdsList().size() - 1; i++) {
+        int intronStart = transcript.getCdsList().get(i).getEnd() + 1;
+        int intronEnd = transcript.getCdsList().get(i + 1).getStart() - 1;
+        Intron intron = new Intron(intronStart, intronEnd);
+        introns.add(intron);
+    }
+}
+    \end{verbatim}
+    
+
+    \item[III] \textbf{Erstellen der \textit{<out>.tsv} Datei}
+\end{enumerate}
+\subsection{Laufzeit}
+\section{Ergebnisse}
+% ------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+% ------------------------------------------------------------------------------
+% \printbibliography
+% ------------------------------------------------------------------------------
+
+
+% ------------------------------------------------------------------------------
+\newpage~\appendix
+% ------------------------------------------------------------------------------
+
+\section{Appendix Section}
+
+hm 
+
+Text goes here
+
+
+
+\end{document}
