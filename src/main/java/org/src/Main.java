@@ -21,11 +21,8 @@ public class Main {
             String outPath = ns.getString("o");
 
             Genome genome = new Genome();
-            // NOTE: potentially create own gtfReader class that returns Genomes based on task
-            // genome.readGTFCDS("/home/malte/projects/gobi/exonSkipping/gtfFiles/gencode.v10.annotation.gtf");
-            // genome.readGTFCDS("/home/malte/projects/gobi/exonSkipping/gtfFiles/Homo_sapiens.GRCh38.86.gtf");
-            // genome.readGTFCDS("/home/malte/projects/gobi/exonSkipping/gtfFiles/example_in.gtf");
 
+            // NOTE: potentially create own gtfReader class that returns Genomes based on task
             genome.readGTFCDS(gtfPath);
             ArrayList<String> events = genome.generateESSE();
             FileUtils.writeFile(outPath, events);
