@@ -30,7 +30,7 @@
     Im Folgenden wird ein Programm zur Erkennung von allen \textit{ES-SE} innerhalb eines Genoms
     anhand seiner Logik, Laufzeit und Ergebnisse Analysiert, wobei nur \textit{ES-SE} berücksichtigt werden,
     die protein-kodierende Transkripte betreffen. Das Programm wurde auf allen verfügbaren
-    \textit{gtf} Dateien in $/mnt/biosoft/praktikum/genprakt/gtfs/$ ausgeführt.
+    \textit{gtf} Dateien in \textit{/mnt/biosoft/praktikum/genprakt/gtfs/} ausgeführt.
 
 \end{abstract}
 
@@ -51,8 +51,9 @@ Zudem ist die Position $B_{pos} - A_{pos} = 1$, wobei sich $A_{pos}$ auf die Pos
 zu allen anderen Exons von $T_{SV}$ bezieht.
 Ein \textit{WT} wäre nun ein weiteres Transkript $T_{WT}$ des selben Gens $G$, welches ebenfalls
 zwei Exons $C, D$ besitzt mit $C_{pos} < D_{pos}$, wobei $C_{E} = I_{S} - 1$ und $D_{S} = I_{E} + 1$, 
-jedoch gilt für $C, D$: $D_{pos} - C_{pos} \ge 1$. 
+jedoch gilt für $C, D$: $D_{pos} - C_{pos} > 1$. 
 Dies bedeutet, dass die Exons von $T_{WT}$ zwischen $C$ und $D$ in $T_{SV}$ herausgesplei\ss t wurden.
+Es kann pro Event mehrere \textit{SV}'s und \textit{WT}'s geben.
 
 \section{Java Programm}
 \subsection{Logik}
@@ -96,11 +97,25 @@ Der Workflow der \textit{JAR} lässt sich in drei Schritte Aufteilen:
         innerhalb des Gens abgespeichert. Dafür werden alle Transkripte eines Gens und deren
         \textit{CodingDnaSequence}'s angeschaut. Die Introns werden dann mit jeweils
         zwei \textit{CodingDnaSequence}'s berechnet
-        (Bei Genen die sich auf dem \textit{"-"} Strang befinden, müssen zuerst die 
-        die \textit{cdsList}'s aller Transkripte invertiert werden und die 
+        (bei Genen die sich auf dem \textit{"-"} Strang befinden, müssen zuerst die 
+        \textit{cdsList}'s aller Transkripte invertiert werden und die 
         Positionen der \textit{CodingDnaSequence}'s neu berechnet werden.
         Das ist später relevant für die Identifikation der \textit{WT}'s):
     \begin{verbatim}
+
+// invert cdsList of transcripts
+public void invertTranscripts() {
+    for (int i = 0; i < transcripts.size(); i++) {
+        Transcript currTranscript = transcripts.get(i);
+        currTranscript.reversCdsList();
+        // updating pos attribute of each cds
+        for (int j = 0; j < currTranscript.getCdsList().size(); j++) {
+            currTranscript.getCdsList().get(j).setPos(j);
+        }
+    }
+}
+
+// generating introns
 for (Transcript transcript : transcripts) {
     for (int i = 0; i < transcript.getCdsList().size() - 1; i++) {
         int intronStart = transcript.getCdsList().get(i).getEnd() + 1;
@@ -111,8 +126,54 @@ for (Transcript transcript : transcripts) {
 }
     \end{verbatim}
     
+    Anschlie\ss end wird für jedes Gen $G$ über die Intron Liste iteriert. Für jedes Intron $I$
+    müssen alle Transkripte von $G$ nach \textit{CodingDnaSequence}'s $A, B$ durchsucht werden, die
+    die Bedingung $A_{E} + 1 = I_{S}$ und $B_{S} - 1 = I_{E}$. Dies kann mit Hilfe der zwei 
+    \textit{HashMap<Integer, CodingDnaSequence>} Objekte durchgeführt werden.
+    Zudem wir für jedes Intron $I$ jeweils 4 leere \textit{HashSet<String>}'s erstellt:
+    \begin{enumerate}
+        \item[1.] \textit{SV\_INTORN}: enthält \textit{"intronStart:intronEnd"} des momentanen Introns $I$
+        \item[2.] \textit{SV\_PROTS}: enthält die \textit{proteinId} von \textit{CodingDnaSequence} $A$
+            \item[3.] \textit{WT\_INTORN}: enthält alle \textit{"intronStart:intronEnd"} Koordinaten, die zwischen $A$ und $B$ liegen
+        \item[4.] \textit{WT\_PROTS}: enthält die \textit{proteinId}'s von allen \textit{CodingDnaSequence}'s die zwischen $A$ und $B$ liegen
+    \end{enumerate}
+    Nun gibt es zwei Möglichkeiten:
+    \begin{enumerate}
+        \item  $A_{E} + 1 = I_{S}$ und $B_{S} - 1 = I_{E}$ und $B_{pos} - A_{pos} = 1$
+        \item  $A_{E} + 1 = I_{S}$ und $B_{S} - 1 = I_{E}$ und $B_{pos} - A_{pos} > 1$
+    \end{enumerate}
+
+    Falls $i$ eintrifft, handelt es sich um ein \textit{SV} und es wird die \textit{proteinId} von \textit{CodingDnaSequence} $A$
+    in \textit{SV\_PROTS} aufgenommen.
+    Ansonsten werden bei Fall $ii$ alle \textit{proteinId}'s der \textit{CodingDnaSequence}'s zwischen $A$ und $B$ zu 
+    \textit{WT\_PROTS} und alle Introns zwischen $A$ und $B$ zu \textit{WT\_INTORN} hinzugefügt.
+    Dabei werden ebenfalls Werte wie \textit{min/max\_skipped\_exon/bases} berechnet:
+    \begin{verbatim}
+// add all introns of WT to WT_INTRON and all cdsids/prot_ids to WT_prots
+int skippedBases = 0;
+for (int i = cdsFront.getPos() ; i < cdsBehind.getPos(); i++) {
+    int wtIntronStart = cdsList.get(i).getEnd() + 1;
+    int wtIntronEnd = cdsList.get(i+1).getStart();
+    WT_INTRON.add(wtIntronStart + ":" + wtIntronEnd);
+
+    // like this i add many ids twice but that's fine :)
+    WT_PROTS.add(cdsFront.getId());
+    WT_PROTS.add(cdsBehind.getId());
+
+    if (i > cdsFront.getPos() && i < cdsBehind.getPos()) {
+        // we are in a cds that was skipped
+        // → get end - start + 1 = length → add to skipped bases
+        skippedBases += cdsList.get(i).getEnd() - cdsList.get(i).getStart() + 1;
+    }
+}
+    \end{verbatim}
+    Ein \textit{ES-SE} wird nur in die \textit{ArrayList<String> events} aufgenommen, falls es für das momentane
+    Intron $I$ mindestens einen \textit{WT} gab.
 
     \item[III] \textbf{Erstellen der \textit{<out>.tsv} Datei}
+    Die \textit{ArrayList<String> events} enthält nun alle \textit{ES-SE} als \textit{String} in bereits
+    korrekter Formatierung. In einem \textit{for loop} wird die Lösung Zeile für Zeile in ein \textit{out.tsv}
+    geschrieben.
 \end{enumerate}
 \subsection{Laufzeit}
 \section{Ergebnisse}
