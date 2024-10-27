@@ -40,13 +40,12 @@
 % Paper ------------------------------------------------------------------------
 
 % ------------------------------------------------------------------------------
-\section{ES-SE Definition}
+\section{ES-SE Definition}\label{sec:problem}
 In einem Gen kann jedes Transkript jeweils mehrere \textit{ES-SE} haben.
 Ein \textit{ES-SE} involviert immer jeweils mindestens eine \textbf{Splice Variant} (\textit{SV}) und einen 
 \textbf{Wild Type} (\textit{WT}). Beide dieser Begriffe beziehen sich auf Transkripte eines Gens $G$.
 Ein \textit{SV} ist ein Transkript $T_{SV}$, welches ein Intron $I$ mit Startposition $I_{S}$ und Endposition
-$I_{E}$ besitzt, was gleichzeitig bedeutet, dass es in $T_{SV}$ zwei Exons $A, B$ gibt,
-die $I$ flankieren. Somit endet $A$ bei $I_{S} - 1 = A_{E}$ und $B$ startet bei $I_{E} + 1 = B_{S}$.
+$I_{E}$ besitzt, was gleichzeitig bedeutet, dass es in $T_{SV}$ zwei Exons $A, B$ gibt, die $I$ flankieren. Somit endet $A$ bei $I_{S} - 1 = A_{E}$ und $B$ startet bei $I_{E} + 1 = B_{S}$.
 Zudem ist die Position $B_{pos} - A_{pos} = 1$, wobei sich $A_{pos}$ auf die Position von Exon $A$ relativ gesehen 
 zu allen anderen Exons von $T_{SV}$ bezieht.
 Ein \textit{WT} wäre nun ein weiteres Transkript $T_{WT}$ des selben Gens $G$, welches ebenfalls
@@ -56,10 +55,10 @@ Dies bedeutet, dass die Exons von $T_{WT}$ zwischen $C$ und $D$ in $T_{SV}$ hera
 Es kann pro Event mehrere \textit{SV}'s und \textit{WT}'s geben.
 
 \section{Java Programm}
-\subsection{Logik}
+\subsection{Logik}\label{sec:logik}
 Der Workflow der \textit{JAR} lässt sich in drei Schritte Aufteilen:
 \begin{enumerate}
-    \item[I] \textbf{Einlesen der \textit{gtf} Datei und Initialisierung der Datenstruktur:}
+    \item[I] \textbf{Einlesen der \textit{gtf} Datei und Initialisierung der Datenstruktur}
 
         Zum einlesen wird die \textit{gtf} Datei zuerst nach relevanten Zeilen gefiltert, denn
         für uns sind momentan nur Zeilen relevant, die in der 3. Spalte entweder
@@ -163,7 +162,8 @@ for (int i = cdsFront.getPos() ; i < cdsBehind.getPos(); i++) {
     if (i > cdsFront.getPos() && i < cdsBehind.getPos()) {
         // we are in a cds that was skipped
         // → get end - start + 1 = length → add to skipped bases
-        skippedBases += cdsList.get(i).getEnd() - cdsList.get(i).getStart() + 1;
+        skippedBases += cdsList.get(i).getEnd() 
+                        - cdsList.get(i).getStart() + 1;
     }
 }
     \end{verbatim}
@@ -171,11 +171,123 @@ for (int i = cdsFront.getPos() ; i < cdsBehind.getPos(); i++) {
     Intron $I$ mindestens einen \textit{WT} gab.
 
     \item[III] \textbf{Erstellen der \textit{<out>.tsv} Datei}
+
     Die \textit{ArrayList<String> events} enthält nun alle \textit{ES-SE} als \textit{String} in bereits
     korrekter Formatierung. In einem \textit{for loop} wird die Lösung Zeile für Zeile in ein \textit{out.tsv}
     geschrieben.
 \end{enumerate}
+\newpage
 \subsection{Laufzeit}
+Die Laufzeitanalyse wird in die drei Segmente aus \ref{sec:logik} unterteilt.
+\begin{enumerate}
+    \item[I] \textbf{Einlesen der \textit{gtf} Datei und Initialisierung der Datenstruktur}
+
+        Für eine \textit{gtf} Datei mit $m$ Zeilen benötigt die Selektion der relevanten Zeilen
+        schon mal mindestens $m$ Vergleiche, da jede Zeile überprüft werden muss.
+        Für jede Zeile wird ein Substring ab dem zweiten \textit{Tab} bis zum dritten \textit{Tab} erstellt (au\ss er bei Kommentaren, diese werden übersprungen). 
+        Die Anzahl der Vergleiche pro Zeile ist kleiner als die Länge der Zeile (da wir ab dem dritten \textit{Tab} abbrechen) und lässt 
+        sich als $a < m.length$ beschreiben. Also
+        \begin{equation}
+            \mathcal{O}(m \cdot a) \implies \mathcal{O}(m)
+        \end{equation}
+        ,da $a$ eine Konstante ist.
+        
+        Bei einer \textit{gtf} Datei mit $m$ validen Zeilen (d.h. jede Zeile hat entweder einen \textit{"exon"} oder \textit{"CDS"} Eintrag) bleiben
+        nach dem Filtern $m$ Zeilen übrig.
+        Für jede dieser Zeilen muss:
+        \begin{enumerate}
+            %% https://softwareengineering.stackexchange.com/questions/331909/whats-the-complexity-of-javas-string-split-function
+            \item Die Zeile am \textit{Tab} geteilt werden: 
+                \begin{equation}
+                    \mathcal{O}(n)
+                \end{equation}
+                , wobei $n$ die Länge der Zeile ist.
+            \item Die letzte Komponente aus i. am \textit{;} geteilt werden: lässt sich ebenfalls mit 
+                \begin{equation}
+                    \mathcal{O}(n)
+                \end{equation}
+                von oben beschränken.
+            \item Die \textit{gene\_id} aus den Attributen aus ii. mit \textit{String parseAttributes(String[] attributeEntries, String attributeName)}
+                abfragen, also:
+                \begin{equation}
+                   \mathcal{O}(e \cdot e_{l})
+                \end{equation}
+                , wobei $e$ die Länge des \textit{attributeEntries} Arrays ist und
+                $e_{l}$ die Länge des längsten Eintrags in \textit{attributeEntries} ist, da wir im Worst Case
+                über alle Einträge in \textit{attributeEntries} iterieren ($e$) und für jeweils jeden Eintrag
+                mindesten vier String Operationen (\textit{trim()}, \textit{indexOf()}, zwei mal \textit{substring()})
+                und eine Vergleichsoperation (\textit{equals()}) aufrufen, welche maximal $e_{l}$ viele 
+                Operationen benötigen. Also $\mathcal{O}(e \cdot 5 \cdot e_{l}) = \mathcal{O}(e \cdot e_{l})$.
+                Für jedes weitere Vorkommen von \textit{parseAttributes()} wird diese Komplexität angenommen.
+            \item Ein neues Gen initialisiert werden und der \textit{gene\_name} abgefragt werden (falls ein neues Gen erreicht wurde), also: 
+                \begin{equation}
+                    \mathcal{O}(1 + e \cdot e_{l})   
+                \end{equation}
+            \item Die \textit{transcript\_id} abgefragt werden, also
+                \begin{equation}
+                    \mathcal{O}(e \cdot e_{l})
+                \end{equation}
+            \item Falls es sich um einen \textit{"CDS"} Eintrag handelt, muss die \textit{protein\_id} abgefragt werden, also:
+                \begin{equation}
+                    \mathcal{O}(e \cdot e_{l})   
+                \end{equation}
+                und in Konstanter Zeit ggf. neue Objekte erstellt, oder auf bereits existierende Objekte
+                zugreifen, um ein neues \textit{CodingDnaSequence} Objekt zu erstellen.
+        \end{enumerate}
+
+        Insgesamt hat die Einlese Routine also eine Komplexität von
+        \[
+            (A) \hspace{3mm} \mathcal{O}(m \cdot 2 \cdot n \cdot 4 \cdot  (e \cdot e_{l})) = \mathcal{O}(m \cdot n \cdot e \cdot e_{l})
+        .\]
+    \item[II] \textbf{Generieren der \textit{ES-SE}}
+
+    Sei $g$ die Anzahl an Genen in unserem Genom. Da wir vom Worst Case ausgehen sagen wir, 
+    dass sich jedes Gen auf dem \textit{"-"} Strang befindet.
+    So muss zuerst in jedem Transkript jedes Gens die \textit{cdsList} invertiert werden.
+    Dies geschieht in:
+    \begin{equation}
+        \mathcal{O}(g \cdot g_{t} \cdot 2 \cdot t_{c}) = \mathcal{O}(g \cdot g_{t} \cdot t_{c})
+    \end{equation}
+    , wobei $g_{t}$ die grö\ss te Anzahl an Transkripten von $g$ ist und $t_{c}$ die längste \textit{cdsList} eines Transkripts ist.
+    Die Konstante $2$ kommt zustande, da zuerst die \textit{cdsList} mit \textit{Collections.reverse()} umgekehrt wird($\mathcal{O}(g_{t})$) und
+    dann nochmals in $\mathcal{O}(g_{t})$ durchlaufen wird, um die in den \textit{CodingDnaSequence} Objekten gespeicherte Position
+    anzupassen.
+    Dann werden für jedes Gen $g$ die Introns generiert. Dies geschieht ebenfalls in
+    \begin{equation}
+        \mathcal{O}(g \cdot g_{t} \cdot t_{c})
+    \end{equation}
+    Die \textit{ES-SE} werden in der \textit{getEvents()} Methode berechnet.
+    Dafür müssen für alle Gene alle Introns und alle Transkripte überprüft werden.
+    Also schon mal $\mathcal{O}(g \cdot g_{i} \cdot g_{t})$.
+    Hier ist $g_{i}$ die grö\ss te Anzahl an Introns von allen Genen und $g_{t}$ wieder 
+    die grö\ss te Anzahl an Transkripten aller Gene. Alle anderen Operationen sind
+    konstant in ihrer Komplexität, da bei ihnen lediglich bereits existente Werte
+    in \textit{HashMaps} oder Objekten abgefragt werden. 
+    Nur falls ein \textit{WT} entdeckt wird, wird in einem \textit{for loop} über die 
+    \textit{CodingDnaSequence}'s zwischen $C$ und $D$ (siehe \ref{sec:problem}. ES-SE Definition) iteriert.
+    Sei $mSE$ (= maxSkippedExons) also die von allen \textit{ES-SE} eines Genoms
+    maximale Anzahl an übersprungenen Exons, so wäre die gesamte Komplexität von
+    II:
+    \begin{equation}
+    (B) \hspace{3mm} \mathcal{O}(2 \cdot (g \cdot g_{t} \cdot t_{c}) + g \cdot g_{i} \cdot g_{t} \cdot mSE) = \mathcal{O}(\overbrace{g \cdot g_{t} \cdot t_{c}}^{\shortstack{\scriptsize\text{invertTranscripts()} \\ \text{\scriptsize\& generateIntrons()}}} + \underbrace{g \cdot g_{i} \cdot g_{t} \cdot mSE}_{\text{getEvents()}} )
+    \end{equation}
+
+    \item[III] \textbf{Erstellen der \textit{<out>.tsv} Datei}
+
+    Hat eine Komplexität von 
+    \begin{equation}
+        (C) \hspace{3mm} \mathcal{O}(E)
+    \end{equation}
+    , wenn $E$ die Menge aller \textit{ES-SE} ist.
+\end{enumerate}
+
+Zusammenfassend also eine Gesamtkomplexität von:
+\begin{align*}
+    (A) + (B) + (C) = \mathcal{O}( m \cdot n \cdot e \cdot e_{l}+ g \cdot g_{t} \cdot t_{c} + g \cdot g_{i} \cdot g_{t} \cdot mSE + E)
+\end{align*}
+    
+
+
 \section{Ergebnisse}
 % ------------------------------------------------------------------------------
 
