@@ -237,7 +237,7 @@ Die Laufzeitanalyse wird in die drei Segmente aus \ref{sec:logik} unterteilt.
 
         Insgesamt hat die Einlese Routine also eine Komplexität von
         \[
-            (A) \hspace{3mm} \mathcal{O}(m \cdot 2 \cdot n \cdot 4 \cdot  (e \cdot e_{l})) = \mathcal{O}(m \cdot n \cdot e \cdot e_{l})
+            (A) \hspace{1em} \mathcal{O}(m \cdot 2 \cdot n \cdot 4 \cdot  (e \cdot e_{l})) = \mathcal{O}(m \cdot n \cdot e \cdot e_{l})
         .\]
     \item[II] \textbf{Generieren der \textit{ES-SE}}
 
@@ -269,14 +269,14 @@ Die Laufzeitanalyse wird in die drei Segmente aus \ref{sec:logik} unterteilt.
     maximale Anzahl an übersprungenen Exons, so wäre die gesamte Komplexität von
     II:
     \begin{equation}
-    (B) \hspace{3mm} \mathcal{O}(2 \cdot (g \cdot g_{t} \cdot t_{c}) + g \cdot g_{i} \cdot g_{t} \cdot mSE) = \mathcal{O}(\overbrace{g \cdot g_{t} \cdot t_{c}}^{\shortstack{\scriptsize\text{invertTranscripts()} \\ \text{\scriptsize\& generateIntrons()}}} + \underbrace{g \cdot g_{i} \cdot g_{t} \cdot mSE}_{\text{getEvents()}} )
+    (B) \hspace{1em} \mathcal{O}(2 \cdot (g \cdot g_{t} \cdot t_{c}) + g \cdot g_{i} \cdot g_{t} \cdot mSE) = \mathcal{O}(\overbrace{g \cdot g_{t} \cdot t_{c}}^{\shortstack{\scriptsize\text{invertTranscripts()} \\ \text{\scriptsize\& generateIntrons()}}} + \underbrace{g \cdot g_{i} \cdot g_{t} \cdot mSE}_{\text{getEvents()}} )
     \end{equation}
 
     \item[III] \textbf{Erstellen der \textit{<out>.tsv} Datei}
 
     Hat eine Komplexität von 
     \begin{equation}
-        (C) \hspace{3mm} \mathcal{O}(E)
+        (C) \hspace{1em} \mathcal{O}(E)
     \end{equation}
     , wenn $E$ die Menge aller \textit{ES-SE} ist.
 \end{enumerate}
