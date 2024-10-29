@@ -15,7 +15,6 @@
 
 % Conditionally display thoughts (hide by switching to `\boolfalse`)
 \boolfalse{INCLUDECOMMENTS}
-\newcommand{\kyle}[1]{\coauthorComment[Kyle]{#1}}
 
 \begin{document}
 
@@ -237,8 +236,9 @@ Die Laufzeitanalyse wird in die drei Segmente aus \ref{sec:logik} unterteilt.
 
         Insgesamt hat die Einlese Routine also eine Komplexität von
         \[
-            (A) \hspace{1em} \mathcal{O}(m \cdot 2 \cdot n \cdot 4 \cdot  (e \cdot e_{l})) = \mathcal{O}(m \cdot n \cdot e \cdot e_{l})
+            (A) \hspace{1em} \mathcal{O}(m \cdot 2 \cdot n \cdot 4 \cdot  (e \cdot e_{l})) = \mathcal{O}(m \cdot n \cdot e \cdot e_{l}) \in  \mathcal{O}(m^{2})
         .\]
+        ,da $m > n > e_{l} >= e$ und somit $\mathcal{O}(m^{2})$ eine valide obere Schranke darstellt.
     \item[II] \textbf{Generieren der \textit{ES-SE}}
 
     Sei $g$ die Anzahl an Genen in unserem Genom. Da wir vom Worst Case ausgehen sagen wir, 
@@ -249,7 +249,7 @@ Die Laufzeitanalyse wird in die drei Segmente aus \ref{sec:logik} unterteilt.
         \mathcal{O}(g \cdot g_{t} \cdot 2 \cdot t_{c}) = \mathcal{O}(g \cdot g_{t} \cdot t_{c})
     \end{equation}
     , wobei $g_{t}$ die grö\ss te Anzahl an Transkripten von $g$ ist und $t_{c}$ die längste \textit{cdsList} eines Transkripts ist.
-    Die Konstante $2$ kommt zustande, da zuerst die \textit{cdsList} mit \textit{Collections.reverse()} umgekehrt wird($\mathcal{O}(g_{t})$) und
+    Die Konstante $2$ kommt zustande, da zuerst die \textit{cdsList} mit \textit{Collections.reverse()} umgekehrt wird ($\mathcal{O}(g_{t})$) und
     dann nochmals in $\mathcal{O}(g_{t})$ durchlaufen wird, um die in den \textit{CodingDnaSequence} Objekten gespeicherte Position
     anzupassen.
     Dann werden für jedes Gen $g$ die Introns generiert. Dies geschieht ebenfalls in
@@ -282,10 +282,32 @@ Die Laufzeitanalyse wird in die drei Segmente aus \ref{sec:logik} unterteilt.
 \end{enumerate}
 
 Zusammenfassend also eine Gesamtkomplexität von:
-\begin{align*}
-    (A) + (B) + (C) = \mathcal{O}( m \cdot n \cdot e \cdot e_{l}+ g \cdot g_{t} \cdot t_{c} + g \cdot g_{i} \cdot g_{t} \cdot mSE + E)
-\end{align*}
-    
+\begin{equation}
+    (A) + (B) + (C) = \mathcal{O}( m^{2} + g \cdot g_{t} \cdot t_{c} + g \cdot g_{i} \cdot g_{t} \cdot mSE + E) \in \mathcal{O}(m^{2})
+\end{equation}
+, da $m^{2} > g \cdot g_{t} \cdot t_{c}$ und $m^{2} > g \cdot g_{i} \cdot g_{t} \cdot mSE + E$.
+Das bedeutet, dass die Kosten der Gesamtoperation im Wesentlichen durch das Einlesen und Strukturieren der Daten (Teil A) dominiert werden, 
+wenn man davon ausgeht, dass $m$ in der Praxis größer als $g$, $g_{t}$, $t_{c}$, $g_{i}$ und $mSE$ ist.
+
+\subsection{Benchmarking}
+Für das Benchmarking wird jeweils \textit{/mnt/biosoft/praktikum/genprakt/gtfs/Homo\_sapiens.GRCh38.86.gtf} verwendet, denn
+sie ist die grö\ss te \textit{gtf} Datei mit $1.4GB$.
+
+\begin{figure}[htpb]
+    \centering
+    \includegraphics[width=0.8\textwidth]{./plots/benchmark_time.jpg}
+    \caption{Methoden Laufzeit der Schritte A, B, C in ms}
+    \label{fig:-plots-benchmark_time-jpg}
+\end{figure}
+
+In \ref{fig:-plots-benchmark_time-jpg} ist eindeutig zu sehen, wie das Einlesen und Initialisieren 
+der Datenstruktur aus Schritt (A), die Dominante Komponente mit $7236ms$ bildet, während die Generierung der
+\textit{ES-SE} lediglich $720ms$, also nur $10\%$ so lange wie Schritt (A) benötigt. 
+Für die Memory Allocations wurde der in \textit{IntelliJ} zur Verfügung gestellter \textit{Gprofiler} verwendet.
+Der Schritt (A) ist auch hier dominant und beansprucht insgesamt $10.33GB$ an Speicher. 
+Von diesen $10.33GB$ werden alleine $6.72GB$ ($65.18\%$) für die Methode \textit{String.split()} benötigt.
+Für die Berechnung der \textit{ES-SE} werden lediglich $288.11MB$ in Anspruch genommen.
+
 
 
 \section{Ergebnisse}
