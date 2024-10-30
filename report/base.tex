@@ -30,9 +30,10 @@
     anhand seiner Logik, Laufzeit und Ergebnisse analysiert, wobei nur \textit{ES-SE} berücksichtigt werden,
     die protein-kodierende Transkripte betreffen. Das Programm wurde auf allen verfügbaren
     \textit{gtf} Dateien in \textit{/mnt/biosoft/praktikum/genprakt/gtfs/} ausgeführt.
-
 \end{abstract}
 
+\newpage
+\tableofcontents
 \newpage
 
 
@@ -57,7 +58,7 @@ Es kann pro Event mehrere \textit{SV}'s und \textit{WT}'s geben.
 \subsection{Logik}\label{sec:logik}
 Der Workflow der \textit{JAR} lässt sich in drei Schritte Aufteilen:
 \begin{enumerate}
-    \item[I] \textbf{Einlesen der \textit{gtf} Datei und Initialisierung der Datenstruktur}
+    \item[(A)] \textbf{Einlesen der \textit{gtf} Datei und Initialisierung der Datenstruktur}
 
         Zum einlesen wird die \textit{gtf} Datei zuerst nach relevanten Zeilen gefiltert, denn
         für uns sind momentan nur Zeilen relevant, die in der 3. Spalte entweder
@@ -88,7 +89,7 @@ Der Workflow der \textit{JAR} lässt sich in drei Schritte Aufteilen:
         Zudem wird mit einer Zählvariable \textit{int cdsCount} die Position der \textit{CodingDnaSequence}'s
         innerhalb des Transkripts in dem \textit{CodingDnaSequence} Objekt gespeichert.
 
-    \item[II] \textbf{Generieren der \textit{ES-SE}}
+    \item[(B)] \textbf{Generieren der \textit{ES-SE}}
 
         Zum generieren der \textit{ES-SE} werden als erstes für alle in dem Genom abgespeicherten
         Gene, die dazugehörigen \textit{Introns} errechnet und in einem \textit{HashSet<Introns>} 
@@ -169,17 +170,36 @@ for (int i = cdsFront.getPos() ; i < cdsBehind.getPos(); i++) {
     Ein \textit{ES-SE} wird nur in die \textit{ArrayList<String> events} aufgenommen, falls es für das momentane
     Intron $I$ mindestens einen \textit{WT} gab.
 
-    \item[III] \textbf{Erstellen der \textit{<out>.tsv} Datei}
+    \item[(C)] \textbf{Erstellen der \textit{<out>.tsv} Datei}
 
     Die \textit{ArrayList<String> events} enthält nun alle \textit{ES-SE} als \textit{String} in bereits
     korrekter Formatierung. In einem \textit{for loop} wird die Lösung Zeile für Zeile in ein \textit{out.tsv}
     geschrieben.
 \end{enumerate}
-\newpage
+
+\subsection{Korrektheit}
+In der Einleseroutine werden alle relevanten Zeilen verarbeitet und das Genom
+korrekt Initialisiert, sofern die Struktur von dem \textit{gtf} den \href{https://asia.ensembl.org/info/website/upload/gff.html}{offiziellen Konventionen} folgt und die jeweiligen 
+\textit{CodingDnaSequence}'s in korrekter Reihenfolge (je nach \textit{"-"/"+"} Strang) vorliegen.
+Zudem werden, falls es keine \textit{"protein\_id"} für eine gegebene Zeile gibt, nach der 
+\textit{"ccdsid"} gesucht und falls es diese nicht gibt, wird die \textit{"protein\_id"} 
+mit \textit{"NaN"} überschrieben. So werden alle Zeilen, die \textit{"CDS"} in ihrer
+dritten Spalte stehen haben, genutzt, um das Genom aufzufüllen. 
+Für das Errechnen der \textit{ES-SE} in Schritt (B) gilt folgendes:
+Alle möglichen Introns in einem Gen werden überprüft und für jedes Intron
+werden alle Transkripte des jeweiligen Gens auf bei $I_{S} - 1$ endende  und 
+bei $I_{E} + 1$ startende \textit{CodingDnaSequence}'s $A, B$ abgefragt. Für
+jeden \textit{SV} oder \textit{WT} Kandidaten wird anschlie\ss end geschaut,
+ob es zwischen $A$ und $B$ weitere \textit{CodingDnaSequence}'s gibt und
+je nach dem ein \textit{ES-SE} entdeckt oder nicht.
+So ist das Programm unter der Annahme, dass die \textit{gtf} Datei fehlerfrei ist, korrekt.
+
+
+
 \subsection{Laufzeit}
 Die Laufzeitanalyse wird in die drei Segmente aus \ref{sec:logik} unterteilt.
 \begin{enumerate}
-    \item[I] \textbf{Einlesen der \textit{gtf} Datei und Initialisierung der Datenstruktur}
+    \item[(A)] \textbf{Einlesen der \textit{gtf} Datei und Initialisierung der Datenstruktur}
 
         Für eine \textit{gtf} Datei mit $m$ Zeilen benötigt die Selektion der relevanten Zeilen
         schon mal mindestens $m$ Vergleiche, da jede Zeile überprüft werden muss.
@@ -234,12 +254,12 @@ Die Laufzeitanalyse wird in die drei Segmente aus \ref{sec:logik} unterteilt.
                 zugreifen, um ein neues \textit{CodingDnaSequence} Objekt zu erstellen.
         \end{enumerate}
 
-        Insgesamt hat die Einlese Routine also eine Komplexität von
+        Insgesamt hat die Einleseroutine also eine Komplexität von
         \[
             (A) \hspace{1em} \mathcal{O}(m \cdot 2 \cdot n \cdot 4 \cdot  (e \cdot e_{l})) = \mathcal{O}(m \cdot n \cdot e \cdot e_{l}) \in  \mathcal{O}(m^{2})
         .\]
         ,da $m > n > e_{l} >= e$ und somit $\mathcal{O}(m^{2})$ eine valide obere Schranke darstellt.
-    \item[II] \textbf{Generieren der \textit{ES-SE}}
+    \item[(B)] \textbf{Generieren der \textit{ES-SE}}
 
     Sei $g$ die Anzahl an Genen in unserem Genom. Da wir vom Worst Case ausgehen sagen wir, 
     dass sich jedes Gen auf dem \textit{"-"} Strang befindet.
@@ -272,7 +292,7 @@ Die Laufzeitanalyse wird in die drei Segmente aus \ref{sec:logik} unterteilt.
     (B) \hspace{1em} \mathcal{O}(2 \cdot (g \cdot g_{t} \cdot t_{c}) + g \cdot g_{i} \cdot g_{t} \cdot mSE) = \mathcal{O}(\overbrace{g \cdot g_{t} \cdot t_{c}}^{\shortstack{\scriptsize\text{invertTranscripts()} \\ \text{\scriptsize\& generateIntrons()}}} + \underbrace{g \cdot g_{i} \cdot g_{t} \cdot mSE}_{\text{getEvents()}} )
     \end{equation}
 
-    \item[III] \textbf{Erstellen der \textit{<out>.tsv} Datei}
+    \item[(C)] \textbf{Erstellen der \textit{<out>.tsv} Datei}
 
     Hat eine Komplexität von 
     \begin{equation}
@@ -290,23 +310,24 @@ Das bedeutet, dass die Kosten der Gesamtoperation im Wesentlichen durch das Einl
 wenn man davon ausgeht, dass $m$ in der Praxis größer als $g$, $g_{t}$, $t_{c}$, $g_{i}$ und $mSE$ ist.
 
 \subsection{Benchmarking}
-Für das Benchmarking wird jeweils \textit{/mnt/biosoft/praktikum/genprakt/gtfs/Homo\_sapiens.GRCh38.86.gtf} verwendet, denn
-sie ist die grö\ss te \textit{gtf} Datei mit $1.4GB$.
+Für das Benchmarking wird jeweils \textit{/mnt/biosoft/praktikum/genprakt/gtfs/Homo\_sapiens.GRCh38.86.gtf} verwendet, da sie die grö\ss te \textit{gtf} Datei mit $1.4GB$ ist.
 
 \begin{figure}[htpb]
     \centering
     \includegraphics[width=0.8\textwidth]{./plots/benchmark_time.jpg}
-    \caption{Methoden Laufzeit der Schritte A, B, C in ms}
+    \caption{Methoden Durchschnittslaufzeit der Schritte A, B, C  nach Version in ms nach 30 facher Ausführung auf Hardware: \textit{AMD Ryzen 7 PRO 4750U with Radeon Graphics (16) @ 1.700GHz}}
+
     \label{fig:-plots-benchmark_time-jpg}
 \end{figure}
 
 In \ref{fig:-plots-benchmark_time-jpg} ist eindeutig zu sehen, wie das Einlesen und Initialisieren 
-der Datenstruktur aus Schritt (A), die Dominante Komponente mit $7236ms$ bildet, während die Generierung der
-\textit{ES-SE} lediglich $720ms$, also nur $10\%$ so lange wie Schritt (A) benötigt. 
-Für die Memory Allocations wurde der in \textit{IntelliJ} zur Verfügung gestellter \textit{Gprofiler} verwendet.
+der Datenstruktur aus Schritt (A), die Dominante Komponente mit $6721ms$ bildet, während die Generierung der
+\textit{ES-SE} lediglich $262ms$ benötigt. 
+Für die Memory Allocations wurde der in \textit{IntelliJ} zur Verfügung gestellter \textit{Profiler} verwendet.
 Der Schritt (A) ist auch hier dominant und beansprucht insgesamt $10.33GB$ an Speicher. 
 Von diesen $10.33GB$ werden alleine $6.72GB$ ($65.18\%$) für die Methode \textit{String.split()} benötigt.
 Für die Berechnung der \textit{ES-SE} werden lediglich $288.11MB$ in Anspruch genommen.
+% TODO: Kurze Diskussion maybe <30.10.24, Malte Weyrich> %
 
 
 
