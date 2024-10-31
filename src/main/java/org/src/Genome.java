@@ -96,6 +96,10 @@ public class Genome {
 
         for (int i = 0; i < lines.size() - 1; i++) {
             String currLine = lines.get(i);
+            // skip potential comments
+            if (currLine.startsWith("#")) {
+                continue;
+            }
 
             // extract main components (line split by \t)
             String[] mainComponents = currLine.split("\t");
