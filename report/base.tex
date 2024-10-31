@@ -52,7 +52,7 @@ zu allen anderen Exons von $T_{SV}$ bezieht.
 Ein \textit{WT} wäre nun ein weiteres Transkript $T_{WT}$ des selben Gens $G$, welches ebenfalls
 zwei Exons $C, D$ besitzt mit $C_{pos} < D_{pos}$, wobei $C_{E} = I_{S} - 1$ und $D_{S} = I_{E} + 1$,
 jedoch gilt für $C, D$: $D_{pos} - C_{pos} > 1$.
-Dies bedeutet, dass die Exons von $T_{WT}$ zwischen $C$ und $D$ in $T_{SV}$ herausgesplei\ss t wurden.
+Dies bedeutet, dass die Exons von $T_{WT}$ zwischen $C$ und $D$ in $T_{SV}$ übersprungen wurden.
 Es kann pro Event mehrere \textit{SV}'s und \textit{WT}'s geben.
 
 \section{Java Programm}
@@ -76,7 +76,7 @@ Der Workflow der \textit{JAR} lässt sich in drei Schritte Aufteilen:
 		Jede der relevanten Zeilen werden nun mit \textit{String.split("\textbackslash t")} in
 		ein \textit{String[] mainComponents} geschrieben. Die \textit{attributeColumn} wird aus
 		\textit{mainComponents} extrahiert (auch als ein \textit{String[]} Names \textit{attributes}),
-		indem man \textit{mainComponents[mainComponents.length - 1]} am \textit{";"} splitted.
+		indem man \textit{mainComponents[mainComponents.length - 1]} am \textit{";"} teilt.
 
 		Mit diesen zwei Komponenten pro Zeile wird als erstes die \textit{gene\_id} abgespeichert
 		und überprüft, ob wir eine neue \textit{gene\_id} erreicht haben.
@@ -288,9 +288,9 @@ Die Laufzeitanalyse wird in die drei Segmente aus \ref{sec:logik} unterteilt.
 		\textit{CodingDnaSequence}'s zwischen $C$ und $D$ (siehe \ref{sec:problem}. ES-SE Definition) iteriert.
 		Sei $mSE$ (= maxSkippedExons) also die von allen \textit{ES-SE} eines Genoms
 		maximale Anzahl an übersprungenen Exons, so wäre die gesamte Komplexität von
-		II:
+        (B):
 		\begin{equation}
-			(B) \hspace{1em} \mathcal{O}(2 \cdot (g \cdot g_{t} \cdot t_{c}) + g \cdot g_{i} \cdot g_{t} \cdot mSE) = \mathcal{O}(\overbrace{g \cdot g_{t} \cdot t_{c}}^{\shortstack{\scriptsize\text{invertTranscripts()} \\ \text{\scriptsize\& generateIntrons()}}} + \underbrace{g \cdot g_{i} \cdot g_{t} \cdot mSE}_{\text{getEvents()}} )
+            (B) \hspace{1em} \mathcal{O}(\overbrace{2 \cdot (g \cdot g_{t} \cdot t_{c})}^{\text{(8) \& (9)}}  +\underbrace{g \cdot g_{i} \cdot g_{t} \cdot mSE}_{\text{getEvents()}} ) = \mathcal{O}(g \cdot g_{t} \cdot t_{c} + g \cdot g_{i} \cdot g_{t} \cdot mSE)
 		\end{equation}
 
 	\item[(C)] \textbf{Erstellen der \textit{<out>.tsv} Datei}
@@ -418,15 +418,8 @@ Diese Verteilung unterstreicht die biologische Relevanz von \textit{Single-Exon-
 Spleißen und zeigt gleichzeitig, dass komplexere \textit{ES-SE} mit mehreren Exons zwar vorkommen,
 aber deutlich seltener sind.
 
-
-
-
-
-
-
 \begin{figure}[htbp]
 	\centering
-	% First table in a minipage
 	\begin{minipage}{0.45\textwidth}
 		\centering
 		\caption{Übersprungene Basen}
@@ -444,8 +437,7 @@ aber deutlich seltener sind.
             \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000164199;r=5:90529344-91164437}{ENSG00000164199}    & 12530               \\
 		\end{tabular}
 	\end{minipage}%
-	\hfill % Adds horizontal space between the tables
-	% Second table in a minipage
+	\hfill 
 	\begin{minipage}{0.45\textwidth}
 		\centering
 		\caption{Übersprungene Exons}
@@ -464,6 +456,8 @@ aber deutlich seltener sind.
 		\end{tabular}
 	\end{minipage}
 \end{figure}
+
+https://www.informatics.jax.org/go/marker/MGI:98864
 
 
 
@@ -484,12 +478,6 @@ aber deutlich seltener sind.
 % ------------------------------------------------------------------------------
 \newpage~\appendix
 % ------------------------------------------------------------------------------
-
-\section{Appendix Section}
-
-hm
-
-Text goes here
 
 
 
