@@ -26,21 +26,11 @@ public class Main {
             genome.readGTFCDS(gtfPath);
             ArrayList<String> events = genome.generateESSE();
             FileUtils.writeFile(outPath, events);
+
         }
         // print usage entry if not all required args were provided
         catch (ArgumentParserException e) {
-            System.out.println(
-                    """
-                    USAGE: exonSkipping.jar
-                    Identifies ES-SE events of protein coding transcripts for a given gtf file.
-                        Usage
-                            -gtf <gtfPath.gtf> [required]
-                            -o <destinationPath.tsv> [required]
-                        Help
-                            -h display help for parameters.
-                    """
-            );
-            System.exit(1);
+            parser.printHelp();
         }
     }
 }
