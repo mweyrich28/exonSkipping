@@ -1,5 +1,6 @@
 \documentclass[12pt]{article}
 \usepackage{paper,math}
+\usepackage{biblatex}
 \addbibresource{references.bib}
 
 \title{Genomorientierte Bioinformatik - Report ExonSkipping}
@@ -30,7 +31,7 @@
 	anhand seiner Logik, Laufzeit und Ergebnisse analysiert, wobei nur \textit{ES-SE} berücksichtigt werden,
 	die protein-kodierende Transkripte betreffen. Das Programm wurde auf allen verfügbaren
 	\textit{GTF} Dateien in \textit{/mnt/biosoft/praktikum/genprakt/gtfs/} ausgeführt.
-    Der Source Code und alle dazugehörigen Komponenten sind auf \href{https://github.com/mweyrich28/exonSkipping}{GitHub} zu finden.
+	Der Source Code und alle dazugehörigen Komponenten sind auf \href{https://github.com/mweyrich28/exonSkipping}{GitHub} zu finden.
 \end{abstract}
 
 \newpage
@@ -288,9 +289,9 @@ Die Laufzeitanalyse wird in die drei Segmente aus \ref{sec:logik} unterteilt.
 		\textit{CodingDnaSequence}'s zwischen $C$ und $D$ (siehe \ref{sec:problem}. ES-SE Definition) iteriert.
 		Sei $mSE$ (= maxSkippedExons) also die von allen \textit{ES-SE} eines Genoms
 		maximale Anzahl an übersprungenen Exons, so wäre die gesamte Komplexität von
-        (B):
+		(B):
 		\begin{equation}
-            (B) \hspace{1em} \mathcal{O}(\overbrace{2 \cdot (g \cdot g_{t} \cdot t_{c})}^{\text{(8) \& (9)}}  +\underbrace{g \cdot g_{i} \cdot g_{t} \cdot mSE}_{\text{getEvents()}} ) = \mathcal{O}(g \cdot g_{t} \cdot t_{c} + g \cdot g_{i} \cdot g_{t} \cdot mSE)
+			(B) \hspace{1em} \mathcal{O}(\overbrace{2 \cdot (g \cdot g_{t} \cdot t_{c})}^{\text{(8) \& (9)}}  +\underbrace{g \cdot g_{i} \cdot g_{t} \cdot mSE}_{\text{getEvents()}} ) = \mathcal{O}(g \cdot g_{t} \cdot t_{c} + g \cdot g_{i} \cdot g_{t} \cdot mSE)
 		\end{equation}
 
 	\item[(C)] \textbf{Erstellen der \textit{<out>.tsv} Datei}
@@ -312,6 +313,7 @@ wenn man davon ausgeht, dass $m$ in der Praxis größer als $g$, $g_{t}$, $t_{c}
 
 \subsection{Benchmarking}
 Für das Benchmarking wird jeweils \textit{/mnt/biosoft/praktikum/genprakt/gtfs/Homo\_sapiens.GRCh38.86.gtf} verwendet, da sie die grö\ss te \textit{GTF} Datei mit $1.4GB$ ist.
+Die zwei \textit{JARs} ($M$ und $L$) aus unserer Gruppe wurden jeweils 30 Mal ausgeführt und davon dann ein Durchschnitt errechnet.
 
 \begin{figure}[htpb]
 	\centering
@@ -322,28 +324,46 @@ Für das Benchmarking wird jeweils \textit{/mnt/biosoft/praktikum/genprakt/gtfs/
 \end{figure}
 
 In \ref{fig:-plots-benchmark_time-jpg} ist eindeutig zu sehen, wie das Einlesen und Initialisieren
-der Datenstruktur aus Schritt (A), die Dominante Komponente mit $6721ms$ bildet, während die Generierung der
-\textit{ES-SE} lediglich $262ms$ benötigt.
-Für die Memory Allocations wurde der in \textit{IntelliJ} zur Verfügung gestellter \textit{Profiler} verwendet.
-Der Schritt (A) ist auch hier dominant und beansprucht insgesamt $10.33GB$ an Speicher.
-Von diesen $10.33GB$ werden alleine $6.72GB$ ($65.18\%$) für die Methode \textit{String.split()} benötigt.
-Für die Berechnung der \textit{ES-SE} werden lediglich $288.11MB$ in Anspruch genommen.
-% TODO: Kurze Diskussion maybe <30.10.24, Malte Weyrich> %
+der Datenstruktur aus Schritt (A), die Dominante Komponente beider \textit{JARs}, mit $6721ms$ und $26977ms$ bildet, während die Generierung der
+\textit{ES-SE} lediglich $262ms$ und $498ms$ benötigt.
+Für die \textit{Memory Allocations} wurde der in \textit{IntelliJ} zur Verfügung gestellter \textit{Profiler} verwendet.
+Wichtig ist hierbei der Unterschied zwischen \textit{RAM} und \textit{Memory Allocations}:
+Der \textit{Profiler} erfasst, wie viel Speicher ein Programm insgesamt anfordert, 
+auch wenn ein Großteil davon später wieder durch den \textit{Garbage Collector} freigegeben wird.
+Der \textit{Profiler} gibt also eher eine Obergrenze des Speicherverbrauchs an, nicht den exakten \textit{RAM}-Verbrauch.
+Der Schritt (A) ist auch hier dominant und fordert in \textit{JAR} $M$ insgesamt $10.33GB$ an Speicher an.
+Von diesen $10.33GB$ werden alleine $6.72GB$ von der Methode \textit{String.split()} gefordert.
+\textit{JAR} $L$ hingegen benötigt $65.32GB$ an Memory Allocations, wobei der Hauptteil 
+dieses Volumens (ca. $60GB$) für die Methode \textit{String.replaceAll()} aufgewendet wird.
+Für die Berechnung der \textit{ES-SE} werden lediglich $288.11MB$ ($M$) und $296.91MB$ ($L$) in Anspruch genommen.
+Die starken Diskrepanzen in Schritt (A) liegen daran, dass die \textit{JAR} $L$ alle Zeilen mit dem 
+\textit{Parser} einlie\ss t und von diesen jedes mal die \textit{attributes} vollständig in einer
+Datenstruktur abspeichert. Die Methode, die die \textit{attributes} in $L$ verarbeitet, ruft für jedes Attribut-Paar
+(\textit{key}, \textit{val}), die Methode \textit{String.replaceAll("\textbackslash "")} auf, welche teuer 
+in Laufzeit und \textit{Memory Allocations} ist.
+Da es in \textit{/mnt/biosoft/praktikum/genprakt/gtfs/Homo\_sapiens.GRCh38.86.gtf} insgesamt 2575498 Einträge gibt
+und pro Entrag jeweils mehrere Attribute, wird \textit{String.replaceAll()} extrem häufig aufgerufen.
+Zusätzlich werden die Attibute in \textit{HashMap}'s gespeichert, was ein zusätzlicher Faktor ist.
+In \textit{JAR} $M$ werden die Zeilen wie in \ref{sec:logik} beschreiben nur dann tatsächlich bearbeitet,
+wenn sie einen \textit{"exon"} oder \textit{"CDS"} Eintrag beinhalten, zudem werden die \textit{attributes} effizienter 
+verarbeitet. Somit ist der \textit{Parser} aus $M$ zwar schneller, jedoch weniger versatil für andere Probleminstanzen.
 
 
-
-\section{Ergebnisse}
+\section{Ergebnisse}\label{sec:res}
 Für die Analyse wurde die \textit{GTF} Datei \textit{/mnt/biosoft/praktikum/genprakt/gtfs/Saccharomyces\_cerevisiae.R64-1-1.75.gtf} ausgelassen,
 da es hier zu keinen \textit{ES-SE} gekommen ist. Die Ursache dafür ist wahrscheinlich, dass
-es, obwohl es in der Hefe auch zu Splicing kommt, in der gegebenen \textit{GTF} Datei keine protein-kodierenden Transkripte mit
-Splicing gab, oder allgemein keine \textit{ES-SE} aufgetreten sind. Zusätzlich werden die \textit{GTF} Dateien und die
-dazugehörigen Ergebnisse mit den folgenden IDs bezeichnet:
+es, obwohl es in der Hefe auch zum Splei\ss en kommt, in der gegebenen \textit{GTF} Datei keine protein-kodierenden Transkripte mit
+Splicing gab, oder allgemein keine \textit{ES-SE} aufgetreten sind. 
+In der Hefe gibt es insgesamt sehr wenige Introns (ca. 300), verglichen mit ($> 140.000$) in dem Menschen (\cite[p.~1525]{doi:10.1073/pnas.0610354104}),
+was die Abwesenheit von \textit{ES-SE} in \textit{Saccharomyces\_cerevisiae.R64-1-1.75.gtf} zusätzlich erklärt. 
+Die \textit{GTF} Dateien und die dazugehörigen Ergebnisse werden ab jetzt mit den folgenden IDs aus Tabelle 
+\ref{tab:label} bezeichnet:
 
 \begin{table}[htpb]
 	\centering
 	\caption{Liste der verwendeten \textit{GTF} Dateien}
 	\label{tab:label}
-	\begin{tabular}{l|c}
+	\begin{tabular}{l|l}
 		\textbf{ID} & \textbf{\textit{GTF} Datei} \\ \hline
 		h.ens.67    & Homo\_sapiens.GRCh37.67.gtf \\
 		h.ens.75    & Homo\_sapiens.GRCh37.75.gtf \\
@@ -418,46 +438,58 @@ Diese Verteilung unterstreicht die biologische Relevanz von \textit{Single-Exon-
 Spleißen und zeigt gleichzeitig, dass komplexere \textit{ES-SE} mit mehreren Exons zwar vorkommen,
 aber deutlich seltener sind.
 
+Die Tabellen in der Abbildung \ref{tab:top} listen Gene nach der Anzahl der übersprungenen Basen und Exons auf.
+Die Tabellen bestehen hier zu 90\% von Genen aus dem Menschen, lediglich ein Gen der Maus (\textbf{\textit{"Ttn"}}) konkurriert mit den 
+anderen Genen der Rangliste. Dabei ist \textit{"TTN"} in beiden Kategorien auf dem ersten Platz mit über 26000 übersprungenen Basen und fast 
+170 übersprungenen Exons. \textit{"TTN"} und \textbf{\textit{"Ttn"}} sind eng verwandte Gene, welche beide für das Protein \textit{Titin} in den 
+jeweiligen Organismen verantwortlich sind. \textit{Titin} wiederum hat eine sehr wichtige Rolle in der 
+Muskelkontraktion und dient zur Stabilisierung und Flexibilität der Sarkomere (\cite{uniprot_titin}). Zudem
+sind \textit{"TTN"} und \textbf{\textit{"Ttn"}} jeweils mit 34350 (\cite{uniprot_TTN}) und 35213 (\cite{uniprot_Ttn}) extrem lange Proteine,
+was die hohe Position in der Rangliste erklärt.
+
+Aus der unteren Hälfte der Tabelle geht hervor, dass eine hohe Anzahl an übersprungenen Exons nicht unbedingt mit 
+der Anzahl an übersprungenen Basen zusammenhängen muss. Während die Gene \textit{"NBPF20"}, \textit{"DYNC2H1"} und \textit{"NBPF10"}
+alle mindestens 70 Exons übersprungen haben, werden die gleichen Ränge in der Tabelle zu übersprungenen Basen von anderen 
+Genen belegt (\textit{"MUC4"} und \textit{"ADGRV1"}).
+
 \begin{figure}[htbp]
 	\centering
 	\begin{minipage}{0.45\textwidth}
 		\centering
-		\caption{Übersprungene Basen}
-		\begin{tabular}{l|l}
-			\textit{\textbf{gene\_id}}                 & \textit{\textbf{skipped\_bases}} \\\hline
-            \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000155657;r=2:178525989-178830802}{ENSG00000155657}    & 26106               \\
-            \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000155657;r=2:178525989-178830802}{ENSG00000155657.25} & 26106               \\
-            \href{https://asia.ensembl.org/Mus_musculus/Gene/Summary?db=core;g=ENSMUSG00000051747;r=2:76534324-76812891}{\textbf{ENSMUSG00000051747}} & 24843               \\
-            \href{https://asia.ensembl.org/Homo_sapiens/Gene/Idhistory?g=ENSG00000283186}{ENSG00000283186}    & 22134               \\
-            \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000155657;r=2:178525989-178830802}{ENSG00000155657.16} & 22134               \\
-            \href{https://asia.ensembl.org/Homo_sapiens/Gene/Idhistory?g=ENSG00000283186}{ENSG00000283186.1}  & 22134               \\
-            \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000145113;r=3:195746765-195811973}{ENSG00000145113}    & 12875               \\
-            \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000145113;r=3:195746765-195811973}{ENSG00000145113.16} & 12875               \\
-            \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000145113;r=3:195746765-195811973}{ENSG00000145113.21} & 12875               \\
-            \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000164199;r=5:90529344-91164437}{ENSG00000164199}    & 12530               \\
+		\begin{tabular}{l|l|l}
+			\textit{\textbf{Symbol}} & \textit{\textbf{ID}}                                                                                                                      & \textit{\textbf{Basen}} \\\hline
+			TTN                      & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000155657;r=2:178525989-178830802}{ENSG00000155657}              & 26106                   \\
+			TTN                      & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000155657;r=2:178525989-178830802}{ENSG00000155657.25}           & 26106                   \\
+			\textbf{Ttn}                      & \href{https://asia.ensembl.org/Mus_musculus/Gene/Summary?db=core;g=ENSMUSG00000051747;r=2:76534324-76812891}{\textbf{ENSMUSG00000051747}} & 24843                   \\
+			TTN                      & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Idhistory?g=ENSG00000283186}{ENSG00000283186}                                            & 22134                   \\
+			TTN                      & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000155657;r=2:178525989-178830802}{ENSG00000155657.16}           & 22134                   \\
+			TTN                      & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Idhistory?g=ENSG00000283186}{ENSG00000283186.1}                                          & 22134                   \\
+			MUC4                     & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000145113;r=3:195746765-195811973}{ENSG00000145113}              & 12875                   \\
+			MUC4                     & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000145113;r=3:195746765-195811973}{ENSG00000145113.16}           & 12875                   \\
+			MUC4                     & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000145113;r=3:195746765-195811973}{ENSG00000145113.21}           & 12875                   \\
+			ADGRV1                   & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000164199;r=5:90529344-91164437}{ENSG00000164199}                & 12530                   \\
 		\end{tabular}
 	\end{minipage}%
-	\hfill 
+	\hfill
 	\begin{minipage}{0.45\textwidth}
 		\centering
-		\caption{Übersprungene Exons}
-		\begin{tabular}{l|l}
-			\textit{\textbf{gene\_id}}                 & \textit{\textbf{skipped\_exons}} \\\hline
-            \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000155657;r=2:178525989-178830802}{ENSG00000155657}    & 169                \\
-            \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000155657;r=2:178525989-178830802}{ENSG00000155657.25} & 169                \\
-            \href{https://asia.ensembl.org/Mus_musculus/Gene/Summary?db=core;g=ENSMUSG00000051747;r=2:76534324-76812891}{\textbf{ENSMUSG00000051747}} & 154                \\
-            \href{https://asia.ensembl.org/Homo_sapiens/Gene/Idhistory?g=ENSG00000283186}{ENSG00000283186}    & 121                \\
-            \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000155657;r=2:178525989-178830802}{ENSG00000155657.16} & 121                \\
-            \href{https://asia.ensembl.org/Homo_sapiens/Gene/Idhistory?g=ENSG00000283186}{ENSG00000283186.1}  & 121                \\
-            \href{https://asia.ensembl.org/Homo_sapiens/Gene/Idhistory?g=ENSG00000203832}{ENSG00000203832.5}  & 78                 \\
-            \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000187240;r=11:103109410-103479863}{ENSG00000187240}    & 70                 \\
-            \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000271425;r=1:146064711-146229000}{ENSG00000271425}    & 70                 \\
-            \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000187240;r=11:103109410-103479863}{ENSG00000187240.8}  & 70                 \\
+        \begin{tabular}{l|l|l}
+			\textit{\textbf{Symbol}} & \textit{\textbf{ID}}                                                                                                                      & \textit{\textbf{Exons}} \\\hline
+			TTN                      & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000155657;r=2:178525989-178830802}{ENSG00000155657}              & 169                     \\
+			TTN                      & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000155657;r=2:178525989-178830802}{ENSG00000155657.25}           & 169                     \\
+			\textbf{Ttn}                      & \href{https://asia.ensembl.org/Mus_musculus/Gene/Summary?db=core;g=ENSMUSG00000051747;r=2:76534324-76812891}{\textbf{ENSMUSG00000051747}} & 154                     \\
+			TTN                      & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Idhistory?g=ENSG00000283186}{ENSG00000283186}                                            & 121                     \\
+			TTN                      & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000155657;r=2:178525989-178830802}{ENSG00000155657.16}           & 121                     \\
+			TTN                      & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Idhistory?g=ENSG00000283186}{ENSG00000283186.1}                                          & 121                     \\
+			NBPF20                   & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Idhistory?g=ENSG00000203832}{ENSG00000203832.5}                                          & 78                      \\
+			DYNC2H1                  & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000187240;r=11:103109410-103479863}{ENSG00000187240}             & 70                      \\
+			NBPF10                   & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000271425;r=1:146064711-146229000}{ENSG00000271425}              & 70                      \\
+			DYNC2H1                  & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000187240;r=11:103109410-103479863}{ENSG00000187240.8}           & 70                      \\
 		\end{tabular}
 	\end{minipage}
+    \caption{Rangliste an Genen mit höchster Anzahl an übersprungen Basen und Exons}\label{tab:top}
 \end{figure}
 
-https://www.informatics.jax.org/go/marker/MGI:98864
 
 
 
@@ -471,7 +503,7 @@ https://www.informatics.jax.org/go/marker/MGI:98864
 
 
 % ------------------------------------------------------------------------------
-% \printbibliography
+\printbibliography
 % ------------------------------------------------------------------------------
 
 
