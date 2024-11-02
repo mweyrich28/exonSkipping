@@ -13,6 +13,7 @@ public class FileUtils{
 
         while((line = buff.readLine()) != null){
             // only read in lines with CDS / exon
+            // skip comments
             if (line.charAt(0) == '#') {
                 fileLines.add(line);
                 continue;
