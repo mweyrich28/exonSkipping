@@ -25,12 +25,12 @@
 	\textbf{Exon Skipping Splicing Events} (\textit{ES-SE}) beschreiben, wie co- oder posttranslational,
 	manche Exons eines Transkripts durch das Splei\ss osom herausgeschnitten oder übersprungen werden, während
 	in anderen Transkripten des selben Gens, diese weiterhin Teil der mRNA bleiben.
-	Die \textit{ES-SE} lassen sich anhand von \textbf{Gene Transfer Format} (\textit{GTF}) files,
+	Die \textit{ES-SE} lassen sich anhand von \textbf{Gene Transfer Format} (\textit{GTF}) Dateien,
 	also Genom Annotations Dateien ablesen und analysieren.
 	Im Folgenden wird ein Programm zur Erkennung von allen \textit{ES-SE} innerhalb eines Genoms
 	anhand seiner Logik, Laufzeit und Ergebnisse analysiert, wobei nur \textit{ES-SE} berücksichtigt werden,
 	die protein-kodierende Transkripte betreffen. Das Programm wurde auf allen verfügbaren
-	\textit{GTF} Dateien in \textit{/mnt/biosoft/praktikum/genprakt/gtfs/} ausgeführt.
+	\textit{GTF}-Dateien in \textit{/mnt/biosoft/praktikum/genprakt/gtfs/} ausgeführt.
 	Der Source Code und alle dazugehörigen Komponenten sind auf \href{https://github.com/mweyrich28/exonSkipping}{GitHub} zu finden.
 \end{abstract}
 
@@ -60,9 +60,9 @@ Es kann pro Event mehrere \textit{SV}'s und \textit{WT}'s geben.
 \subsection{Logik}\label{sec:logik}
 Der Workflow der \textit{JAR} lässt sich in drei Schritte Aufteilen:
 \begin{enumerate}
-	\item[(A)] \textbf{Einlesen der \textit{GTF} Datei und Initialisierung der Datenstruktur}
+	\item[(A)] \textbf{Einlesen der \textit{GTF}-Datei und Initialisierung der Datenstruktur}
 
-		Zum einlesen wird die \textit{GTF} Datei zuerst nach relevanten Zeilen gefiltert, denn
+		Zum einlesen wird die \textit{GTF}-Datei zuerst nach relevanten Zeilen gefiltert, denn
 		für uns sind momentan nur Zeilen relevant, die in der 3. Spalte entweder
 		\textit{"exon"} oder \textit{"CDS"} stehen haben. Hierbei wird vermieden,
 		die Methode \textit{String.split("\textbackslash t")} zu verwenden.
@@ -74,7 +74,7 @@ Der Workflow der \textit{JAR} lässt sich in drei Schritte Aufteilen:
 		erreicht wurde. Falls der entstandenen String $\in \left\{\text{"exon"}, \text{"CDS"} \right\}$, wird die
 		Zeile einer \textit{ArrayList<String>} hinzugefügt, ansonsten wird mit der nächsten Zeile weiter gemacht.
 		Diese Liste enthält am Ende alle relevanten Zeilen.
-		Jede der relevanten Zeilen werden nun mit \textit{String.split("\textbackslash t")} in
+		Jede der relevanten Zeilen werden erst jetzt mit \textit{String.split("\textbackslash t")} in
 		ein \textit{String[] mainComponents} geschrieben. Die \textit{attributeColumn} wird aus
 		\textit{mainComponents} extrahiert (auch als ein \textit{String[]} Names \textit{attributes}),
 		indem man \textit{mainComponents[mainComponents.length - 1]} am \textit{";"} teilt.
@@ -85,11 +85,13 @@ Der Workflow der \textit{JAR} lässt sich in drei Schritte Aufteilen:
 		ob wir ein neues Transkript erreicht haben. Neue Transkripte werden in einer
 		\textit{ArrayList<Transkript>} des dazugehörigen Gens abgespeichert.
 		Transkripte wiederum besitzen eine \textit{ArrayList<CodingDnaSequence> cdsList} und zwei
-		\textit{HashMap<Integer, CodingDnaSequence>} \textit{cdsStartIndices}, \textit{cdsEndIndices}. Die Transkripte werden mit den dazugehörigen
-		\textit{CodingDnaSequence}'s befüllt, wobei für jede erstellte \textit{CodingDnaSequence} die Start- und
-		Endposition in den jeweiligen \textit{HashMap}'s als Key auf das erstellte Objekt verweisen.
+		\textit{HashMap<Integer, CodingDnaSequence>} \textit{cdsStartIndices}, \textit{cdsEndIndices}. 
+        Für jede erstellte \textit{CodingDnaSequence} eines Transkripts wird ein neuer
+        Eintrag in den zwei \textit{HashMap}'s gemacht, wobei jeweils eine der Koordinaten als
+        Schlüssel dient und auf das so eben erstellte Objekt abbildet.
 		Zudem wird mit einer Zählvariable \textit{int cdsCount} die Position der \textit{CodingDnaSequence}'s
-		innerhalb des Transkripts in dem \textit{CodingDnaSequence} Objekt gespeichert.
+		innerhalb des Transkripts in dem \textit{CodingDnaSequence} Objekt gespeichert. Wird ein neues Transkript
+        erreicht, wird der \textit{cdsCount} wieder zurückgesetzt.
 
 	\item[(B)] \textbf{Generieren der \textit{ES-SE}}
 
@@ -178,50 +180,32 @@ for (int i = cdsFront.getPos() ; i < cdsBehind.getPos(); i++) {
 		korrekter Formatierung. In einem \textit{for loop} wird die Lösung Zeile für Zeile in ein \textit{out.tsv}
 		geschrieben.
 \end{enumerate}
-
-\subsection{Korrektheit}
-In der Einleseroutine werden alle relevanten Zeilen verarbeitet und das Genom
-korrekt Initialisiert, sofern die Struktur von dem \textit{GTF} den \href{https://asia.ensembl.org/info/website/upload/gff.html}{offiziellen Konventionen} folgt und die jeweiligen
-\textit{CodingDnaSequence}'s in korrekter Reihenfolge (je nach \textit{"-"/"+"} Strang) vorliegen.
-Zudem werden, falls es keine \textit{"protein\_id"} für eine gegebene Zeile gibt, nach der
-\textit{"ccdsid"} gesucht und falls es diese nicht gibt, wird die \textit{"protein\_id"}
-mit \textit{"NaN"} überschrieben. So werden alle Zeilen, die \textit{"CDS"} in ihrer
-dritten Spalte stehen haben, genutzt, um das Genom aufzufüllen.
-Für das Errechnen der \textit{ES-SE} in Schritt (B) gilt folgendes:
-Alle möglichen Introns in einem Gen werden überprüft und für jedes Intron
-werden alle Transkripte des jeweiligen Gens auf bei $I_{S} - 1$ endende  und
-bei $I_{E} + 1$ startende \textit{CodingDnaSequence}'s $A, B$ abgefragt. Für
-jeden \textit{SV} oder \textit{WT} Kandidaten wird anschlie\ss end geschaut,
-ob es zwischen $A$ und $B$ weitere \textit{CodingDnaSequence}'s gibt und
-je nach dem ein \textit{ES-SE} entdeckt oder nicht.
-So ist das Programm unter der Annahme, dass die \textit{GTF} Datei fehlerfrei ist, korrekt.
-
-
+\newpage
 
 \subsection{Laufzeit}
 Die Laufzeitanalyse wird in die drei Segmente aus \ref{sec:logik} unterteilt.
 \begin{enumerate}
-	\item[(A)] \textbf{Einlesen der \textit{GTF} Datei und Initialisierung der Datenstruktur}
+	\item[(A)] \textbf{Einlesen der \textit{GTF}-Datei und Initialisierung der Datenstruktur}
 
-		Für eine \textit{GTF} Datei mit $m$ Zeilen benötigt die Selektion der relevanten Zeilen
+		Für eine \textit{GTF}-Datei mit $m$ Zeilen benötigt die Selektion der relevanten Zeilen $n$
 		schon mal mindestens $m$ Vergleiche, da jede Zeile überprüft werden muss.
 		Für jede Zeile wird ein Substring ab dem zweiten \textit{Tab} bis zum dritten \textit{Tab} erstellt (au\ss er bei Kommentaren, diese werden übersprungen).
 		Die Anzahl der Vergleiche pro Zeile ist kleiner als die Länge der Zeile (da wir ab dem dritten \textit{Tab} abbrechen) und lässt
-		sich als $a < m.length$ beschreiben. Also
+		sich als $a < n.length$ beschreiben. Also
 		\begin{equation}
 			\mathcal{O}(m \cdot a) \implies \mathcal{O}(m)
 		\end{equation}
 		,da $a$ eine Konstante ist.
 
-		Bei einer \textit{GTF} Datei mit $m$ validen Zeilen (d.h. jede Zeile hat entweder einen \textit{"exon"} oder \textit{"CDS"} Eintrag) bleiben
+		Bei einer \textit{GTF}-Datei mit $m$ validen Zeilen (d.h. jede Zeile hat entweder einen \textit{"exon"} oder \textit{"CDS"} Eintrag) bleiben
 		nach dem Filtern $m$ Zeilen übrig.
-		Für jede dieser Zeilen muss:
+		\textbf{Für jede dieser $m$ Zeilen muss}:
 		\begin{enumerate}
 			%% https://softwareengineering.stackexchange.com/questions/331909/whats-the-complexity-of-javas-string-split-function
 			\item Die Zeile am \textit{Tab} geteilt werden:
 			      \begin{equation}
-				      \mathcal{O}(n)
-			      \end{equation}
+                      \mathcal{O}(n)
+			      \end{equation}\cite{stackoverflow_split_complexity}
 			      , wobei $n$ die Länge der Zeile ist.
 			\item Die letzte Komponente aus i. am \textit{;} geteilt werden: lässt sich ebenfalls mit
 			      \begin{equation}
@@ -258,7 +242,7 @@ Die Laufzeitanalyse wird in die drei Segmente aus \ref{sec:logik} unterteilt.
 
 		Insgesamt hat die Einleseroutine also eine Komplexität von
 		\[
-			(A) \hspace{1em} \mathcal{O}(m \cdot 2 \cdot n \cdot 4 \cdot  (e \cdot e_{l})) = \mathcal{O}(m \cdot n \cdot e \cdot e_{l}) \in  \mathcal{O}(m^{2})
+			(A) \hspace{1em} \mathcal{O}\Bigg(m + m \cdot  \Big(2 \cdot n \cdot 4 \cdot  \big(e \cdot e_{l}\big)\Big)\Bigg) = \mathcal{O}(m + m \cdot n \cdot e \cdot e_{l}) \in \mathcal{O}(m^{2})
 			.\]
 		,da $m > n > e_{l} >= e$ und somit $\mathcal{O}(m^{2})$ eine valide obere Schranke darstellt.
 	\item[(B)] \textbf{Generieren der \textit{ES-SE}}
@@ -311,8 +295,29 @@ Zusammenfassend also eine Gesamtkomplexität von:
 Das bedeutet, dass die Kosten der Gesamtoperation im Wesentlichen durch das Einlesen und Strukturieren der Daten (Teil A) dominiert werden,
 wenn man davon ausgeht, dass $m$ in der Praxis größer als $g$, $g_{t}$, $t_{c}$, $g_{i}$ und $mSE$ ist.
 
+
+\subsection{Korrektheit}
+In der Einleseroutine werden alle relevanten Zeilen verarbeitet und das Genom
+korrekt Initialisiert, sofern die Struktur von dem \textit{GTF} den \href{https://asia.ensembl.org/info/website/upload/gff.html}{offiziellen Konventionen} folgt und die jeweiligen
+\textit{CodingDnaSequence}'s in korrekter Reihenfolge (je nach \textit{"-"/"+"} Strang) vorliegen.
+Zudem werden, falls es keine \textit{"protein\_id"} für eine gegebene Zeile gibt, nach der
+\textit{"ccdsid"} gesucht und falls es diese nicht gibt, wird die \textit{"protein\_id"}
+mit \textit{"NaN"} überschrieben. So werden alle Zeilen, die \textit{"CDS"} in ihrer
+dritten Spalte stehen haben, genutzt, um das Genom aufzufüllen.
+Für das Errechnen der \textit{ES-SE} in Schritt (B) gilt folgendes:
+Alle möglichen Introns in einem Gen werden überprüft und für jedes Intron
+werden alle Transkripte des jeweiligen Gens auf bei $I_{S} - 1$ endende  und
+bei $I_{E} + 1$ startende \textit{CodingDnaSequence}'s $A, B$ abgefragt. Für
+jeden \textit{SV} oder \textit{WT} Kandidaten wird anschlie\ss end geschaut,
+ob es zwischen $A$ und $B$ weitere \textit{CodingDnaSequence}'s gibt und
+je nach dem ein \textit{ES-SE} entdeckt oder nicht.
+So ist das Programm unter der Annahme, dass die \textit{GTF}-Datei fehlerfrei ist, korrekt.
+
+
+
+
 \subsection{Benchmarking}
-Für das Benchmarking wird jeweils \textit{/mnt/biosoft/praktikum/genprakt/gtfs/Homo\_sapiens.GRCh38.86.gtf} verwendet, da sie die grö\ss te \textit{GTF} Datei mit $1.4GB$ ist.
+Für das Benchmarking wird jeweils \textit{/mnt/biosoft/praktikum/genprakt/gtfs/Homo\_sapiens.GRCh38.86.gtf} verwendet, da sie die grö\ss te \textit{GTF}-Datei mit $1.4GB$ ist.
 Die zwei \textit{JARs} ($M$ und $L$) aus unserer Gruppe wurden jeweils 30 Mal ausgeführt und davon dann ein Durchschnitt errechnet.
 
 \begin{figure}[htpb]
@@ -323,48 +328,48 @@ Die zwei \textit{JARs} ($M$ und $L$) aus unserer Gruppe wurden jeweils 30 Mal au
 	\label{fig:-plots-benchmark_time-jpg}
 \end{figure}
 
-In \ref{fig:-plots-benchmark_time-jpg} ist eindeutig zu sehen, wie das Einlesen und Initialisieren
+In Abbildung \ref{fig:-plots-benchmark_time-jpg} ist eindeutig zu sehen, wie das Einlesen und Initialisieren
 der Datenstruktur aus Schritt (A), die Dominante Komponente beider \textit{JARs}, mit $6721ms$ und $26977ms$ bildet, während die Generierung der
 \textit{ES-SE} lediglich $262ms$ und $498ms$ benötigt.
 Für die \textit{Memory Allocations} wurde der in \textit{IntelliJ} zur Verfügung gestellter \textit{Profiler} verwendet.
 Wichtig ist hierbei der Unterschied zwischen \textit{RAM} und \textit{Memory Allocations}:
-Der \textit{Profiler} erfasst, wie viel Speicher ein Programm insgesamt anfordert, 
+Der \textit{Profiler} erfasst, wie viel Speicher ein Programm insgesamt anfordert,
 auch wenn ein Großteil davon später wieder durch den \textit{Garbage Collector} freigegeben wird.
 Der \textit{Profiler} gibt also eher eine Obergrenze des Speicherverbrauchs an, nicht den exakten \textit{RAM}-Verbrauch.
 Der Schritt (A) ist auch hier dominant und fordert in \textit{JAR} $M$ insgesamt $10.33GB$ an Speicher an.
 Von diesen $10.33GB$ werden alleine $6.72GB$ von der Methode \textit{String.split()} gefordert.
-\textit{JAR} $L$ hingegen benötigt $65.32GB$ an Memory Allocations, wobei der Hauptteil 
+\textit{JAR} $L$ hingegen benötigt $65.32GB$ an Memory Allocations, wobei der Hauptteil
 dieses Volumens (ca. $60GB$) für die Methode \textit{String.replaceAll()} aufgewendet wird.
 Für die Berechnung der \textit{ES-SE} werden lediglich $288.11MB$ ($M$) und $296.91MB$ ($L$) in Anspruch genommen.
-Die starken Diskrepanzen in Schritt (A) liegen daran, dass die \textit{JAR} $L$ alle Zeilen mit dem 
+Die starken Diskrepanzen in Schritt (A) liegen daran, dass die \textit{JAR} $L$ alle Zeilen mit dem
 \textit{Parser} einlie\ss t und von diesen jedes mal die \textit{attributes} vollständig in einer
 Datenstruktur abspeichert. Die Methode, die die \textit{attributes} in $L$ verarbeitet, ruft für jedes Attribut-Paar
-(\textit{key}, \textit{val}), die Methode \textit{String.replaceAll("\textbackslash "")} auf, welche teuer 
+(\textit{key}, \textit{val}), die Methode \textit{String.replaceAll("\textbackslash "")} auf, welche teuer
 in Laufzeit und \textit{Memory Allocations} ist.
-Da es in \textit{/mnt/biosoft/praktikum/genprakt/gtfs/Homo\_sapiens.GRCh38.86.gtf} insgesamt 2575498 Einträge gibt
+Da es in \textit{/mnt/biosoft/praktikum/genprakt/gtfs/Homo\_sapiens.GRCh38.86.gtf} insgesamt 2.575.498 Einträge gibt
 und pro Entrag jeweils mehrere Attribute, wird \textit{String.replaceAll()} extrem häufig aufgerufen.
 Zusätzlich werden die Attibute in \textit{HashMap}'s gespeichert, was ein zusätzlicher Faktor ist.
 In \textit{JAR} $M$ werden die Zeilen wie in \ref{sec:logik} beschreiben nur dann tatsächlich bearbeitet,
-wenn sie einen \textit{"exon"} oder \textit{"CDS"} Eintrag beinhalten, zudem werden die \textit{attributes} effizienter 
+wenn sie einen \textit{"exon"} oder \textit{"CDS"} Eintrag beinhalten, zudem werden die \textit{attributes} effizienter
 verarbeitet. Somit ist der \textit{Parser} aus $M$ zwar schneller, jedoch weniger versatil für andere Probleminstanzen.
 
 
 \section{Ergebnisse}\label{sec:res}
-Für die Analyse wurde die \textit{GTF} Datei \textit{/mnt/biosoft/praktikum/genprakt/gtfs/Saccharomyces\_cerevisiae.R64-1-1.75.gtf} ausgelassen,
+Für die Analyse wurde die \textit{GTF}-Datei \textit{/mnt/biosoft/praktikum/genprakt/gtfs/Saccharomyces\_cerevisiae.R64-1-1.75.gtf} ausgelassen,
 da es hier zu keinen \textit{ES-SE} gekommen ist. Die Ursache dafür ist wahrscheinlich, dass
-es, obwohl es in der Hefe auch zum Splei\ss en kommt, in der gegebenen \textit{GTF} Datei keine protein-kodierenden Transkripte mit
-Splicing gab, oder allgemein keine \textit{ES-SE} aufgetreten sind. 
+es, obwohl es in der Hefe auch zum Splei\ss en kommt, in der gegebenen \textit{GTF}-Datei keine protein-kodierenden Transkripte mit
+Splicing gab.
 In der Hefe gibt es insgesamt sehr wenige Introns (ca. 300), verglichen mit ($> 140.000$) in dem Menschen (\cite[p.~1525]{doi:10.1073/pnas.0610354104}),
-was die Abwesenheit von \textit{ES-SE} in \textit{Saccharomyces\_cerevisiae.R64-1-1.75.gtf} zusätzlich erklärt. 
-Die \textit{GTF} Dateien und die dazugehörigen Ergebnisse werden ab jetzt mit den folgenden IDs aus Tabelle 
+was die Abwesenheit von \textit{ES-SE} in \textit{Saccharomyces\_cerevisiae.R64-1-1.75.gtf} zusätzlich erklärt.
+Die \textit{GTF}-Dateien und die dazugehörigen Ergebnisse werden ab jetzt mit den folgenden IDs aus Tabelle
 \ref{tab:label} bezeichnet:
 
 \begin{table}[htpb]
 	\centering
-	\caption{Liste der verwendeten \textit{GTF} Dateien}
+	\caption{Liste der verwendeten \textit{GTF}-Dateien}
 	\label{tab:label}
 	\begin{tabular}{l|l}
-		\textbf{ID} & \textbf{\textit{GTF} Datei} \\ \hline
+		\textbf{ID} & \textbf{\textit{GTF}-Datei} \\ \hline
 		h.ens.67    & Homo\_sapiens.GRCh37.67.gtf \\
 		h.ens.75    & Homo\_sapiens.GRCh37.75.gtf \\
 		h.ens.86    & Homo\_sapiens.GRCh38.86.gtf \\
@@ -387,20 +392,20 @@ verglichen:
 	\label{fig:-plots-genes-jpg}
 \end{figure}
 
-In Abbildung \ref{fig:-plots-genes-jpg} sieht man, wie die Anzahl an Genen in den verschiedenen \textit{GTF} Dateien des
-Menschen in einem Intervall von $[20320; 23393]$ variieren. Dies liegt daran, dass die
-\textit{GTF} Dateien jeweils von unterschiedlichen Assemblies und Annotations Versionen stammen,
+In Abbildung \ref{fig:-plots-genes-jpg} sieht man, wie die Anzahl an Genen in den verschiedenen \textit{GTF}-Dateien des
+Menschen in einem Intervall von $[20.320; 23.393]$ variieren. Dies liegt daran, dass die
+\textit{GTF}-Dateien jeweils von unterschiedlichen Assemblies und Annotations Versionen stammen,
 welche beide einen starken Einfluss auf die resultierende \textit{GTF} haben (und somit auch auf das Ergebnis der \textit{JAR}).
-Wie zu erwarten, hat bei den zum Menschen zugehörigen \textit{GTF} Dateien, die mit den meisten Genen auch die meisten \textit{ES-SE}.
-Die Dateien \textit{"h.gc.25"}, \textit{"h.ens.67"}, \textit{"h.ens.86"}, \textit{"h.ens.90"}, \textit{"h.ens.93"} haben alle eine sehr
-ähnliche Verteilung der \textit{"ES-SE Gesamt"} und \textit{"Gene mit ES-SE"} Kategorie, obwohl die \textit{GTF} Datei von
-\textit{"h.ens.67"} mehr Gene beinhaltet, als die drei anderen \textit{GTF} Dateien.
+Wie zu erwarten, hat bei den zum Menschen zugehörigen \textit{GTF}-Dateien, die mit den meisten Genen auch die meisten \textit{ES-SE}.
+Die Dateien \textit{"h.gc.25"}, \textit{\textbf{"h.ens.67"}}, \textit{"h.ens.86"}, \textit{"h.ens.90"}, \textit{"h.ens.93"} haben alle eine sehr
+ähnliche Verteilung der \textit{"ES-SE Gesamt"} und \textit{"Gene mit ES-SE"} Kategorie, obwohl die \textit{GTF}-Datei von
+\textit{\textbf{"h.ens.67"}} mehr Gene beinhaltet, als die \textit{vier anderen} \textit{GTF}-Dateien.
 \textit{"h.gc.10"} scheint am wenigsten \textit{Gene mit ES-SE} und \textit{"ES-SE Gesamt"} zu besitzen.
 Bei der Maus wiederum gibt es vergleichsweise wenige \textit{ES-SE}, obwohl es insgesamt fast genau so viele
-protein-kodierende Gene gibt (23119) wie in \textit{"h.ens.75"} (23393).
+protein-kodierende Gene gibt (23.119) wie in \textit{"h.ens.75"} (23.393).
 
 Unter Einbezug der Abbildungen \ref{fig:-plots-skipped_bases-jpg} und \ref{fig:-plots-skipped_exons-jpg}, sind die
-selben vier Trends zu beobachten, die sich in Abbildung \ref{fig:-plots-genes-jpg} bereits andeuten:
+selben Trends zu beobachten, die sich in Abbildung \ref{fig:-plots-genes-jpg} bereits andeuten:
 
 \begin{figure}[htpb]
 	\centering
@@ -413,10 +418,10 @@ selben vier Trends zu beobachten, die sich in Abbildung \ref{fig:-plots-genes-jp
 Abbildung \ref{fig:-plots-skipped_bases-jpg} zeigt die kumulative Verteilung der übersprungenen Basen pro \textit{GTF}.
 Alle Kurven zeigen einen charakteristischen S-förmigen Verlauf, was auf ein ähnliches grundlegendes Muster im \textit{ES-SE} Verhalten
 hindeutet. Es bilden sich hauptsächlich zwei Plateaus aus:
-Ein höheres Plateau bei etwa 15.000-17.500 übersprungenen Basen für die vom Mensch stammenden \textit{GTF} Dateien
+Ein höheres Plateau bei etwa 15.000-17.500 übersprungenen Basen für die vom Mensch stammenden \textit{GTF}-Dateien
 und ein niedrigeres Plateau bei etwa 6.000 übersprungenen Basen für die Maus.
 Die zwei Ausrei\ss er (\textit{"h.ens.75"} und \textit{"h.gc.10"}) des höheren Plateaus sind wieder auf die jeweils
-grö\ss te und kleinste Anzahl an Genen mit \textit{ES-SE} innerhalb der Humanen \textit{GTF} Dateien zurückzuführen.
+grö\ss te und kleinste Anzahl an Genen mit \textit{ES-SE} innerhalb der Humanen \textit{GTF}-Dateien zurückzuführen.
 
 Der steilste Anstieg der Kurven erfolgt im Bereich zwischen 100 und 1.000 übersprungenen Basen, was darauf hindeutet,
 dass die meisten \textit{ES-SE} in diesem Größenbereich stattfinden.
@@ -431,26 +436,11 @@ von einzelnen Basen bis hin zu mehreren tausend Basen.
 \end{figure}
 
 Abbildung \ref{fig:-plots-skipped_exons-jpg} zeigt die kumulative Verteilung der übersprungenen Exons pro \textit{GTF}.
-Auch hier zeigen sich die 4 Trends aus \ref{fig:-plots-skipped_bases-jpg} und \ref{fig:-plots-genes-jpg}.
 Die meisten \textit{ES-SE} betreffen lediglich ein oder zwei Exons und werden mit zunehmender Anzahl an
 übersprungenen Exons immer weniger.
 Diese Verteilung unterstreicht die biologische Relevanz von \textit{Single-Exon-Skipping} als häufigstem Mechanismus im alternativen
 Spleißen und zeigt gleichzeitig, dass komplexere \textit{ES-SE} mit mehreren Exons zwar vorkommen,
 aber deutlich seltener sind.
-
-Die Tabellen in der Abbildung \ref{tab:top} listen Gene nach der Anzahl der übersprungenen Basen und Exons auf.
-Die Tabellen bestehen hier zu 90\% von Genen aus dem Menschen, lediglich ein Gen der Maus (\textbf{\textit{"Ttn"}}) konkurriert mit den 
-anderen Genen der Rangliste. Dabei ist \textit{"TTN"} in beiden Kategorien auf dem ersten Platz mit über 26000 übersprungenen Basen und fast 
-170 übersprungenen Exons. \textit{"TTN"} und \textbf{\textit{"Ttn"}} sind eng verwandte Gene, welche beide für das Protein \textit{Titin} in den 
-jeweiligen Organismen verantwortlich sind. \textit{Titin} wiederum hat eine sehr wichtige Rolle in der 
-Muskelkontraktion und dient zur Stabilisierung und Flexibilität der Sarkomere (\cite{uniprot_titin}). Zudem
-sind \textit{"TTN"} und \textbf{\textit{"Ttn"}} jeweils mit 34350 (\cite{uniprot_TTN}) und 35213 (\cite{uniprot_Ttn}) extrem lange Proteine,
-was die hohe Position in der Rangliste erklärt.
-
-Aus der unteren Hälfte der Tabelle geht hervor, dass eine hohe Anzahl an übersprungenen Exons nicht unbedingt mit 
-der Anzahl an übersprungenen Basen zusammenhängen muss. Während die Gene \textit{"NBPF20"}, \textit{"DYNC2H1"} und \textit{"NBPF10"}
-alle mindestens 70 Exons übersprungen haben, werden die gleichen Ränge in der Tabelle zu übersprungenen Basen von anderen 
-Genen belegt (\textit{"MUC4"} und \textit{"ADGRV1"}).
 
 \begin{figure}[htbp]
 	\centering
@@ -458,37 +448,62 @@ Genen belegt (\textit{"MUC4"} und \textit{"ADGRV1"}).
 		\centering
 		\begin{tabular}{l|l|l}
 			\textit{\textbf{Symbol}} & \textit{\textbf{ID}}                                                                                                                      & \textit{\textbf{Basen}} \\\hline
-			TTN                      & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000155657;r=2:178525989-178830802}{ENSG00000155657}              & 26106                   \\
-			TTN                      & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000155657;r=2:178525989-178830802}{ENSG00000155657.25}           & 26106                   \\
-			\textbf{Ttn}                      & \href{https://asia.ensembl.org/Mus_musculus/Gene/Summary?db=core;g=ENSMUSG00000051747;r=2:76534324-76812891}{\textbf{ENSMUSG00000051747}} & 24843                   \\
-			TTN                      & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Idhistory?g=ENSG00000283186}{ENSG00000283186}                                            & 22134                   \\
-			TTN                      & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000155657;r=2:178525989-178830802}{ENSG00000155657.16}           & 22134                   \\
-			TTN                      & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Idhistory?g=ENSG00000283186}{ENSG00000283186.1}                                          & 22134                   \\
-			MUC4                     & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000145113;r=3:195746765-195811973}{ENSG00000145113}              & 12875                   \\
-			MUC4                     & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000145113;r=3:195746765-195811973}{ENSG00000145113.16}           & 12875                   \\
-			MUC4                     & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000145113;r=3:195746765-195811973}{ENSG00000145113.21}           & 12875                   \\
-			ADGRV1                   & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000164199;r=5:90529344-91164437}{ENSG00000164199}                & 12530                   \\
+			TTN                      & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000155657;r=2:178525989-178830802}{ENSG00000155657}              & 26.106                   \\
+			\textbf{Ttn}             & \href{https://asia.ensembl.org/Mus_musculus/Gene/Summary?db=core;g=ENSMUSG00000051747;r=2:76534324-76812891}{\textbf{ENSMUSG00000051747}} & 24.843                   \\
+			TTN                      & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Idhistory?g=ENSG00000283186}{ENSG00000283186}                                            & 22.134                   \\
+			MUC4                     & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000145113;r=3:195746765-195811973}{ENSG00000145113}              & 12.875                   \\
+			ADGRV1                   & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000164199;r=5:90529344-91164437}{ENSG00000164199}                & 12.530                   \\
+			DYNC2H1                  & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000187240;r=11:103109410-103479863}{ENSG00000187240}             & 10.182                   \\
+			\textbf{Fsip2}           & \href{https://asia.ensembl.org/Mus_musculus/Gene/Summary?db=core;g=ENSMUSG00000075249;r=2:82773978-82839281}{\textbf{ENSMUSG00000075249}} & 9.659                    \\
+			NBPF20                   & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Idhistory?g=ENSG00000203832}{ENSG00000203832}                                            & 9.573                    \\
+			FSIP2                    & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000188738;r=2:185738804-185833290}{ENSG00000188738}              & 9.437                    \\
+			XIRP2                    & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000163092;r=2:166888480-167259753}{ENSG00000163092}              & 9.379                    \\
 		\end{tabular}
-	\end{minipage}%
+	\end{minipage}
 	\hfill
 	\begin{minipage}{0.45\textwidth}
 		\centering
-        \begin{tabular}{l|l|l}
-			\textit{\textbf{Symbol}} & \textit{\textbf{ID}}                                                                                                                      & \textit{\textbf{Exons}} \\\hline
-			TTN                      & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000155657;r=2:178525989-178830802}{ENSG00000155657}              & 169                     \\
-			TTN                      & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000155657;r=2:178525989-178830802}{ENSG00000155657.25}           & 169                     \\
-			\textbf{Ttn}                      & \href{https://asia.ensembl.org/Mus_musculus/Gene/Summary?db=core;g=ENSMUSG00000051747;r=2:76534324-76812891}{\textbf{ENSMUSG00000051747}} & 154                     \\
-			TTN                      & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Idhistory?g=ENSG00000283186}{ENSG00000283186}                                            & 121                     \\
-			TTN                      & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000155657;r=2:178525989-178830802}{ENSG00000155657.16}           & 121                     \\
-			TTN                      & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Idhistory?g=ENSG00000283186}{ENSG00000283186.1}                                          & 121                     \\
-			NBPF20                   & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Idhistory?g=ENSG00000203832}{ENSG00000203832.5}                                          & 78                      \\
-			DYNC2H1                  & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000187240;r=11:103109410-103479863}{ENSG00000187240}             & 70                      \\
-			NBPF10                   & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000271425;r=1:146064711-146229000}{ENSG00000271425}              & 70                      \\
-			DYNC2H1                  & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000187240;r=11:103109410-103479863}{ENSG00000187240.8}           & 70                      \\
+		\begin{tabular}{l|l|l}
+			\textit{\textbf{Symbol}} & \textit{\textbf{ID}}                                                                                                          & \textit{\textbf{Exons}} \\\hline
+		TTN                      & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000155657;r=2:178525989-178830802}{ENSG00000155657}              & 169                     \\
+		\textbf{Ttn}             & \href{https://asia.ensembl.org/Mus_musculus/Gene/Summary?db=core;g=ENSMUSG00000051747;r=2:76534324-76812891}{\textbf{ENSMUSG00000051747}} & 154                     \\
+		TTN                      & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Idhistory?g=ENSG00000283186}{ENSG00000283186}                                            & 121                     \\
+		NBPF20                   & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Idhistory?g=ENSG00000203832}{ENSG00000203832.5}                                          & 78                      \\
+		DYNC2H1                  & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000187240;r=11:103109410-103479863}{ENSG00000187240}             & 70                      \\
+		NBPF10                   & \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000271425;r=1:146064711-146229000}{ENSG00000271425}              & 70                      \\
+		NBPF10	& \href{https://asia.ensembl.org/Homo_sapiens/Gene/Idhistory?g=ENSG00000163386}{ENSG00000163386}	& 60\\
+		ADGRV1	& \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000164199;r=5:90529344-91164437}{ENSG00000164199}	&59\\
+		NBPF20	& \href{https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000162825;r=1:145289900-145425603}{ENSG00000162825}	&56\\
+		NBPF12	& \href{https://asia.ensembl.org/Homo_sapiens/Gene/Idhistory?g=ENSG00000186275}{ENSG00000186275}	&52 \\
 		\end{tabular}
 	\end{minipage}
-    \caption{Rangliste an Genen mit höchster Anzahl an übersprungen Basen und Exons}\label{tab:top}
+	\caption{Rangliste an Genen mit höchster Anzahl an übersprungen Basen und Exons.}\label{tab:top}
 \end{figure}
+
+Die Tabellen in Abbildung \ref{tab:top} zeigen die Top-10 Gene basierend auf der Anzahl ihrer Basen (links) und Exons (rechts).
+Bei Genen mit identischen Transkripten, die sich nur durch Suffix-Annotationen aus verschiedenen GTF-Dateien unterscheiden
+(z.B. \textit{ENSG00000155657}  und \\ \textit{ENSG00000155657.25}), wurde nur ein Repräsentant beibehalten,
+da diese Duplikate biologisch dasselbe Gen repräsentieren und sich lediglich in ihrer
+Versions-/Quellenkennzeichnung unterscheiden.
+Die Ränge in den Tabellen werden vor allem von Genen aus dem Menschen eingenommen, lediglich zwei Gene der \textbf{Maus} (\textbf{\textit{"Ttn"}} und \textbf{\textit{Fsip2}}) konkurrieren mit den
+anderen Genen der Rangliste. Dabei ist \textit{"TTN"} in beiden Kategorien auf dem ersten Platz mit 
+über 26000 übersprungenen Basen und fast 170 übersprungenen Exons. \textit{"TTN"} und \textbf{\textit{"Ttn"}} 
+sind eng verwandte Gene, welche beide für das Protein \textit{Titin} in den
+jeweiligen Organismen verantwortlich sind. \textit{Titin} wiederum hat eine sehr wichtige Rolle in der
+Muskelkontraktion und dient zur Stabilisierung und Flexibilität der Sarkomere (\cite{uniprot_titin}). Zudem
+sind \textit{"TTN"} und \textbf{\textit{"Ttn"}} jeweils mit 34.350 (\cite{uniprot_TTN}) und 35.213 (\cite{uniprot_Ttn}) extrem lange Proteine,
+was die hohe Position in der Rangliste erklärt.
+Ebenfalls aus der Tabelle hervorgehend ist, dass eine hohe Anzahl an übersprungenen Exons nicht unbedingt mit
+der Anzahl an übersprungenen Basen zusammenhängen muss. Während das Gen \textit{"MUC4"} mit 
+12.875 Basen auf Rang vier der linken Tabelle steht, fehlt in der rechten Tabelle von ihm jede Spur.
+In den Tabellen ist auch auffällig, dass es oft das gleiche \textbf{\textit{Gen Symbol}} mit unterschiedlicher 
+\textit{\textbf{ID}} und Werten gibt. Zum Beispiel ist \textit{"TTN"} in beiden Tabellen jeweils zwei mal
+mit unterschiedlichen Werten gelistet. 
+Diese Unterschiede entstehen durch die Verwendung von sechs verschiedenen \textit{GTF}-Dateien für das menschliche Genom, 
+die unterschiedliche Versionen und Qualitätsstufen der Genom Annotation repräsentieren. So kann ein Gen wie \textit{"TTN"} 
+in einer neueren oder detaillierteren \textit{GTF}-Datei mehr annotierte Exons oder eine präzisere Basenzahl aufweisen als 
+in einer älteren oder weniger umfassenden Annotation. 
+
 
 
 

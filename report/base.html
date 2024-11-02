@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <meta name="author" content="Malte Weyrich" />
+  <title>Genomorientierte Bioinformatik - Report ExonSkipping</title>
+  <style>
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    span.underline{text-decoration: underline;}
+    div.column{display: inline-block; vertical-align: top; width: 50%;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    ul.task-list{list-style: none;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Genomorientierte Bioinformatik - Report ExonSkipping</h1>
+<p class="author">Malte Weyrich</p>
+<p class="date">2024-11-02</p>
+</header>
+<hr />
+<p><strong>Exon Skipping Splicing Events</strong> (<em>ES-SE</em>) beschreiben, wie co- oder posttranslational, manche Exons eines Transkripts durch das Spleißosom herausgeschnitten oder übersprungen werden, während in anderen Transkripten des selben Gens, diese weiterhin Teil der mRNA bleiben. Die <em>ES-SE</em> lassen sich anhand von <strong>Gene Transfer Format</strong> (<em>GTF</em>) Dateien, also Genom Annotations Dateien ablesen und analysieren. Im Folgenden wird ein Programm zur Erkennung von allen <em>ES-SE</em> innerhalb eines Genoms anhand seiner Logik, Laufzeit und Ergebnisse analysiert, wobei nur <em>ES-SE</em> berücksichtigt werden, die protein-kodierende Transkripte betreffen. Das Programm wurde auf allen verfügbaren <em>GTF</em>-Dateien in <em>/mnt/biosoft/praktikum/genprakt/gtfs/</em> ausgeführt. Der Source Code und alle dazugehörigen Komponenten sind auf <a href="https://github.com/mweyrich28/exonSkipping">GitHub</a> zu finden.</p>
+<hr />
+<h1 id="sec:problem">ES-SE Definition</h1>
+<p>In einem Gen kann jedes Transkript jeweils mehrere <em>ES-SE</em> haben. Ein <em>ES-SE</em> involviert immer jeweils mindestens eine <strong>Splice Variant</strong> (<em>SV</em>) und einen <strong>Wild Type</strong> (<em>WT</em>). Beide dieser Begriffe beziehen sich auf Transkripte eines Gens <span class="math inline"><em>G</em></span>. Ein <em>SV</em> ist ein Transkript <span class="math inline"><em>T</em><sub><em>S</em><em>V</em></sub></span>, welches ein Intron <span class="math inline"><em>I</em></span> mit Startposition <span class="math inline"><em>I</em><sub><em>S</em></sub></span> und Endposition <span class="math inline"><em>I</em><sub><em>E</em></sub></span> besitzt, was gleichzeitig bedeutet, dass es in <span class="math inline"><em>T</em><sub><em>S</em><em>V</em></sub></span> zwei Exons <span class="math inline"><em>A</em>, <em>B</em></span> gibt, die <span class="math inline"><em>I</em></span> flankieren. Somit endet <span class="math inline"><em>A</em></span> bei <span class="math inline"><em>I</em><sub><em>S</em></sub> − 1 = <em>A</em><sub><em>E</em></sub></span> und <span class="math inline"><em>B</em></span> startet bei <span class="math inline"><em>I</em><sub><em>E</em></sub> + 1 = <em>B</em><sub><em>S</em></sub></span>. Zudem ist die Position <span class="math inline"><em>B</em><sub><em>p</em><em>o</em><em>s</em></sub> − <em>A</em><sub><em>p</em><em>o</em><em>s</em></sub> = 1</span>, wobei sich <span class="math inline"><em>A</em><sub><em>p</em><em>o</em><em>s</em></sub></span> auf die Position von Exon <span class="math inline"><em>A</em></span> relativ gesehen zu allen anderen Exons von <span class="math inline"><em>T</em><sub><em>S</em><em>V</em></sub></span> bezieht. Ein <em>WT</em> wäre nun ein weiteres Transkript <span class="math inline"><em>T</em><sub><em>W</em><em>T</em></sub></span> des selben Gens <span class="math inline"><em>G</em></span>, welches ebenfalls zwei Exons <span class="math inline"><em>C</em>, <em>D</em></span> besitzt mit <span class="math inline"><em>C</em><sub><em>p</em><em>o</em><em>s</em></sub> &lt; <em>D</em><sub><em>p</em><em>o</em><em>s</em></sub></span>, wobei <span class="math inline"><em>C</em><sub><em>E</em></sub> = <em>I</em><sub><em>S</em></sub> − 1</span> und <span class="math inline"><em>D</em><sub><em>S</em></sub> = <em>I</em><sub><em>E</em></sub> + 1</span>, jedoch gilt für <span class="math inline"><em>C</em>, <em>D</em></span>: <span class="math inline"><em>D</em><sub><em>p</em><em>o</em><em>s</em></sub> − <em>C</em><sub><em>p</em><em>o</em><em>s</em></sub> &gt; 1</span>. Dies bedeutet, dass die Exons von <span class="math inline"><em>T</em><sub><em>W</em><em>T</em></sub></span> zwischen <span class="math inline"><em>C</em></span> und <span class="math inline"><em>D</em></span> in <span class="math inline"><em>T</em><sub><em>S</em><em>V</em></sub></span> übersprungen wurden. Es kann pro Event mehrere <em>SV</em>’s und <em>WT</em>’s geben.</p>
+<h1 id="java-programm">Java Programm</h1>
+<h2 id="sec:logik">Logik</h2>
+<p>Der Workflow der <em>JAR</em> lässt sich in drei Schritte Aufteilen:</p>
+<ol>
+<li><p><strong>Einlesen der <em>GTF</em>-Datei und Initialisierung der Datenstruktur</strong></p>
+<p>Zum einlesen wird die <em>GTF</em>-Datei zuerst nach relevanten Zeilen gefiltert, denn für uns sind momentan nur Zeilen relevant, die in der 3. Spalte entweder <em>"exon"</em> oder <em>"CDS"</em> stehen haben. Hierbei wird vermieden, die Methode <em>String.split("\t")</em> zu verwenden. Stattdessen wird in einem <em>for loop</em> jedes Zeichen einzeln betrachtet. Dabei werden Zeilen die mit einem <em>"#"</em> anfangen direkt übersprungen. Für alle anderen Zeilen werden die Anzahl der <em>tabs</em> gezählt und nach dem zweiten <em>tab</em>, werden alle darauf folgenden Zeichen zu einem <em>String</em> zusammen konkateniert, bis der dritte <em>tab</em> erreicht wurde. Falls der entstandenen String <span class="math inline"> ∈ {"exon","CDS"}</span>, wird die Zeile einer <em>ArrayList&lt;String&gt;</em> hinzugefügt, ansonsten wird mit der nächsten Zeile weiter gemacht. Diese Liste enthält am Ende alle relevanten Zeilen. Jede der relevanten Zeilen werden erst jetzt mit <em>String.split("\t")</em> in ein <em>String[] mainComponents</em> geschrieben. Die <em>attributeColumn</em> wird aus <em>mainComponents</em> extrahiert (auch als ein <em>String[]</em> Names <em>attributes</em>), indem man <em>mainComponents[mainComponents.length - 1]</em> am <em>";"</em> teilt.</p>
+<p>Mit diesen zwei Komponenten pro Zeile wird als erstes die <em>gene_id</em> abgespeichert und überprüft, ob wir eine neue <em>gene_id</em> erreicht haben. Falls ja, wird ein neues Gen erstellt. Für die darauf folgenden Zeilen wird überprüft, ob wir ein neues Transkript erreicht haben. Neue Transkripte werden in einer <em>ArrayList&lt;Transkript&gt;</em> des dazugehörigen Gens abgespeichert. Transkripte wiederum besitzen eine <em>ArrayList&lt;CodingDnaSequence&gt; cdsList</em> und zwei <em>HashMap&lt;Integer, CodingDnaSequence&gt;</em> <em>cdsStartIndices</em>, <em>cdsEndIndices</em>. Für jede erstellte <em>CodingDnaSequence</em> eines Transkripts wird ein neuer Eintrag in den zwei <em>HashMap</em>’s gemacht, wobei jeweils eine der Koordinaten als Schlüssel dient und auf das so eben erstellte Objekt abbildet. Zudem wird mit einer Zählvariable <em>int cdsCount</em> die Position der <em>CodingDnaSequence</em>’s innerhalb des Transkripts in dem <em>CodingDnaSequence</em> Objekt gespeichert. Wird ein neues Transkript erreicht, wird der <em>cdsCount</em> wieder zurückgesetzt.</p></li>
+<li><p><strong>Generieren der <em>ES-SE</em></strong></p>
+<p>Zum generieren der <em>ES-SE</em> werden als erstes für alle in dem Genom abgespeicherten Gene, die dazugehörigen <em>Introns</em> errechnet und in einem <em>HashSet&lt;Introns&gt;</em> innerhalb des Gens abgespeichert. Dafür werden alle Transkripte eines Gens und deren <em>CodingDnaSequence</em>’s angeschaut. Die Introns werden dann mit jeweils zwei <em>CodingDnaSequence</em>’s berechnet (bei Genen die sich auf dem <em>"-"</em> Strang befinden, müssen zuerst die <em>cdsList</em>’s aller Transkripte invertiert werden und die Positionen der <em>CodingDnaSequence</em>’s neu berechnet werden. Das ist später relevant für die Identifikation der <em>WT</em>’s):</p>
+<pre><code>
+// invert cdsList of transcripts
+public void invertTranscripts() {
+    for (int i = 0; i &lt; transcripts.size(); i++) {
+        Transcript currTranscript = transcripts.get(i);
+        currTranscript.reversCdsList();
+        // updating pos attribute of each cds
+        for (int j = 0; j &lt; currTranscript.getCdsList().size(); j++) {
+            currTranscript.getCdsList().get(j).setPos(j);
+        }
+    }
+}
+
+// generating introns
+for (Transcript transcript : transcripts) {
+    for (int i = 0; i &lt; transcript.getCdsList().size() - 1; i++) {
+        int intronStart = transcript.getCdsList().get(i).getEnd() + 1;
+        int intronEnd = transcript.getCdsList().get(i + 1).getStart() - 1;
+        Intron intron = new Intron(intronStart, intronEnd);
+        introns.add(intron);
+    }
+}</code></pre>
+<p>Anschließend wird für jedes Gen <span class="math inline"><em>G</em></span> über die Intron Liste iteriert. Für jedes Intron <span class="math inline"><em>I</em></span> müssen alle Transkripte von <span class="math inline"><em>G</em></span> nach <em>CodingDnaSequence</em>’s <span class="math inline"><em>A</em>, <em>B</em></span> durchsucht werden, die die Bedingung <span class="math inline"><em>A</em><sub><em>E</em></sub> + 1 = <em>I</em><sub><em>S</em></sub></span> und <span class="math inline"><em>B</em><sub><em>S</em></sub> − 1 = <em>I</em><sub><em>E</em></sub></span>. Dies kann mit Hilfe der zwei <em>HashMap&lt;Integer, CodingDnaSequence&gt;</em> Objekte durchgeführt werden. Zudem wir für jedes Intron <span class="math inline"><em>I</em></span> jeweils 4 leere <em>HashSet&lt;String&gt;</em>’s erstellt:</p>
+<ol>
+<li><p><em>SV_INTORN</em>: enthält <em>"intronStart:intronEnd"</em> des momentanen Introns <span class="math inline"><em>I</em></span></p></li>
+<li><p><em>SV_PROTS</em>: enthält die <em>proteinId</em> von <em>CodingDnaSequence</em> <span class="math inline"><em>A</em></span></p></li>
+<li><p><em>WT_INTORN</em>: enthält alle <em>"intronStart:intronEnd"</em> Koordinaten, die zwischen <span class="math inline"><em>A</em></span> und <span class="math inline"><em>B</em></span> liegen</p></li>
+<li><p><em>WT_PROTS</em>: enthält die <em>proteinId</em>’s von allen <em>CodingDnaSequence</em>’s die zwischen <span class="math inline"><em>A</em></span> und <span class="math inline"><em>B</em></span> liegen</p></li>
+</ol>
+<p>Nun gibt es zwei Möglichkeiten:</p>
+<ol>
+<li><p><span class="math inline"><em>A</em><sub><em>E</em></sub> + 1 = <em>I</em><sub><em>S</em></sub></span> und <span class="math inline"><em>B</em><sub><em>S</em></sub> − 1 = <em>I</em><sub><em>E</em></sub></span> und <span class="math inline"><em>B</em><sub><em>p</em><em>o</em><em>s</em></sub> − <em>A</em><sub><em>p</em><em>o</em><em>s</em></sub> = 1</span></p></li>
+<li><p><span class="math inline"><em>A</em><sub><em>E</em></sub> + 1 = <em>I</em><sub><em>S</em></sub></span> und <span class="math inline"><em>B</em><sub><em>S</em></sub> − 1 = <em>I</em><sub><em>E</em></sub></span> und <span class="math inline"><em>B</em><sub><em>p</em><em>o</em><em>s</em></sub> − <em>A</em><sub><em>p</em><em>o</em><em>s</em></sub> &gt; 1</span></p></li>
+</ol>
+<p>Falls <span class="math inline"><em>i</em></span> eintrifft, handelt es sich um ein <em>SV</em> und es wird die <em>proteinId</em> von <em>CodingDnaSequence</em> <span class="math inline"><em>A</em></span> in <em>SV_PROTS</em> aufgenommen. Ansonsten werden bei Fall <span class="math inline"><em>i</em><em>i</em></span> alle <em>proteinId</em>’s der <em>CodingDnaSequence</em>’s zwischen <span class="math inline"><em>A</em></span> und <span class="math inline"><em>B</em></span> zu <em>WT_PROTS</em> und alle Introns zwischen <span class="math inline"><em>A</em></span> und <span class="math inline"><em>B</em></span> zu <em>WT_INTORN</em> hinzugefügt. Dabei werden ebenfalls Werte wie <em>min/max_skipped_exon/bases</em> berechnet:</p>
+<pre><code>// add all introns of WT to WT_INTRON and all cdsids/prot_ids to WT_prots
+int skippedBases = 0;
+for (int i = cdsFront.getPos() ; i &lt; cdsBehind.getPos(); i++) {
+    int wtIntronStart = cdsList.get(i).getEnd() + 1;
+    int wtIntronEnd = cdsList.get(i+1).getStart();
+    WT_INTRON.add(wtIntronStart + &quot;:&quot; + wtIntronEnd);
+
+    // like this i add many ids twice but that&#39;s fine :)
+    WT_PROTS.add(cdsFront.getId());
+    WT_PROTS.add(cdsBehind.getId());
+
+    if (i &gt; cdsFront.getPos() &amp;&amp; i &lt; cdsBehind.getPos()) {
+        // we are in a cds that was skipped
+        // → get end - start + 1 = length → add to skipped bases
+        skippedBases += cdsList.get(i).getEnd() 
+                        - cdsList.get(i).getStart() + 1;
+    }
+}</code></pre>
+<p>Ein <em>ES-SE</em> wird nur in die <em>ArrayList&lt;String&gt; events</em> aufgenommen, falls es für das momentane Intron <span class="math inline"><em>I</em></span> mindestens einen <em>WT</em> gab.</p></li>
+<li><p><strong>Erstellen der <em>&lt;out&gt;.tsv</em> Datei</strong></p>
+<p>Die <em>ArrayList&lt;String&gt; events</em> enthält nun alle <em>ES-SE</em> als <em>String</em> in bereits korrekter Formatierung. In einem <em>for loop</em> wird die Lösung Zeile für Zeile in ein <em>out.tsv</em> geschrieben.</p></li>
+</ol>
+<h2 id="laufzeit">Laufzeit</h2>
+<p>Die Laufzeitanalyse wird in die drei Segmente aus <a href="#sec:logik" data-reference-type="ref" data-reference="sec:logik">2.1</a> unterteilt.</p>
+<ol>
+<li><p><strong>Einlesen der <em>GTF</em>-Datei und Initialisierung der Datenstruktur</strong></p>
+<p>Für eine <em>GTF</em>-Datei mit <span class="math inline"><em>m</em></span> Zeilen benötigt die Selektion der relevanten Zeilen <span class="math inline"><em>n</em></span> schon mal mindestens <span class="math inline"><em>m</em></span> Vergleiche, da jede Zeile überprüft werden muss. Für jede Zeile wird ein Substring ab dem zweiten <em>Tab</em> bis zum dritten <em>Tab</em> erstellt (außer bei Kommentaren, diese werden übersprungen). Die Anzahl der Vergleiche pro Zeile ist kleiner als die Länge der Zeile (da wir ab dem dritten <em>Tab</em> abbrechen) und lässt sich als <span class="math inline"><em>a</em> &lt; <em>n</em>.<em>l</em><em>e</em><em>n</em><em>g</em><em>t</em><em>h</em></span> beschreiben. Also <br /><span class="math display">𝒪(<em>m</em> ⋅ <em>a</em>) ⟹ 𝒪(<em>m</em>)</span><br /> ,da <span class="math inline"><em>a</em></span> eine Konstante ist.</p>
+<p>Bei einer <em>GTF</em>-Datei mit <span class="math inline"><em>m</em></span> validen Zeilen (d.h. jede Zeile hat entweder einen <em>"exon"</em> oder <em>"CDS"</em> Eintrag) bleiben nach dem Filtern <span class="math inline"><em>m</em></span> Zeilen übrig. <strong>Für jede dieser <span class="math inline"><em>m</em></span> Zeilen muss</strong>:</p>
+<ol>
+<li><p>Die Zeile am <em>Tab</em> geteilt werden: <br /><span class="math display">𝒪(<em>n</em>)</span><br /><span class="citation" data-cites="stackoverflow_split_complexity"></span> , wobei <span class="math inline"><em>n</em></span> die Länge der Zeile ist.</p></li>
+<li><p>Die letzte Komponente aus i. am <em>;</em> geteilt werden: lässt sich ebenfalls mit <br /><span class="math display">𝒪(<em>n</em>)</span><br /> von oben beschränken.</p></li>
+<li><p>Die <em>gene_id</em> aus den Attributen aus ii. mit <em>String parseAttributes(String[] attributeEntries, String attributeName)</em> abfragen, also: <br /><span class="math display">𝒪(<em>e</em> ⋅ <em>e</em><sub><em>l</em></sub>)</span><br /> , wobei <span class="math inline"><em>e</em></span> die Länge des <em>attributeEntries</em> Arrays ist und <span class="math inline"><em>e</em><sub><em>l</em></sub></span> die Länge des längsten Eintrags in <em>attributeEntries</em> ist, da wir im Worst Case über alle Einträge in <em>attributeEntries</em> iterieren (<span class="math inline"><em>e</em></span>) und für jeweils jeden Eintrag mindesten vier String Operationen (<em>trim()</em>, <em>indexOf()</em>, zwei mal <em>substring()</em>) und eine Vergleichsoperation (<em>equals()</em>) aufrufen, welche maximal <span class="math inline"><em>e</em><sub><em>l</em></sub></span> viele Operationen benötigen. Also <span class="math inline">𝒪(<em>e</em> ⋅ 5 ⋅ <em>e</em><sub><em>l</em></sub>) = 𝒪(<em>e</em> ⋅ <em>e</em><sub><em>l</em></sub>)</span>. Für jedes weitere Vorkommen von <em>parseAttributes()</em> wird diese Komplexität angenommen.</p></li>
+<li><p>Ein neues Gen initialisiert werden und der <em>gene_name</em> abgefragt werden (falls ein neues Gen erreicht wurde), also: <br /><span class="math display">𝒪(1 + <em>e</em> ⋅ <em>e</em><sub><em>l</em></sub>)</span><br /></p></li>
+<li><p>Die <em>transcript_id</em> abgefragt werden, also <br /><span class="math display">𝒪(<em>e</em> ⋅ <em>e</em><sub><em>l</em></sub>)</span><br /></p></li>
+<li><p>Falls es sich um einen <em>"CDS"</em> Eintrag handelt, muss die <em>protein_id</em> abgefragt werden, also: <br /><span class="math display">𝒪(<em>e</em> ⋅ <em>e</em><sub><em>l</em></sub>)</span><br /> und in Konstanter Zeit ggf. neue Objekte erstellt, oder auf bereits existierende Objekte zugreifen, um ein neues <em>CodingDnaSequence</em> Objekt zu erstellen.</p></li>
+</ol>
+<p>Insgesamt hat die Einleseroutine also eine Komplexität von <br /><span class="math display">(<em>A</em>)  𝒪(<em>m</em> + <em>m</em> ⋅ (2 ⋅ <em>n</em> ⋅ 4 ⋅ (<em>e</em> ⋅ <em>e</em><sub><em>l</em></sub>))) = 𝒪(<em>m</em> + <em>m</em> ⋅ <em>n</em> ⋅ <em>e</em> ⋅ <em>e</em><sub><em>l</em></sub>) ∈ 𝒪(<em>m</em><sup>2</sup>).</span><br /> ,da <span class="math inline"><em>m</em> &gt; <em>n</em> &gt; <em>e</em><sub><em>l</em></sub> &gt;  = <em>e</em></span> und somit <span class="math inline">𝒪(<em>m</em><sup>2</sup>)</span> eine valide obere Schranke darstellt.</p></li>
+<li><p><strong>Generieren der <em>ES-SE</em></strong></p>
+<p>Sei <span class="math inline"><em>g</em></span> die Anzahl an Genen in unserem Genom. Da wir vom Worst Case ausgehen sagen wir, dass sich jedes Gen auf dem <em>"-"</em> Strang befindet. So muss zuerst in jedem Transkript jedes Gens die <em>cdsList</em> invertiert werden. Dies geschieht in: <br /><span class="math display">𝒪(<em>g</em> ⋅ <em>g</em><sub><em>t</em></sub> ⋅ 2 ⋅ <em>t</em><sub><em>c</em></sub>) = 𝒪(<em>g</em> ⋅ <em>g</em><sub><em>t</em></sub> ⋅ <em>t</em><sub><em>c</em></sub>)</span><br /> , wobei <span class="math inline"><em>g</em><sub><em>t</em></sub></span> die größte Anzahl an Transkripten von <span class="math inline"><em>g</em></span> ist und <span class="math inline"><em>t</em><sub><em>c</em></sub></span> die längste <em>cdsList</em> eines Transkripts ist. Die Konstante <span class="math inline">2</span> kommt zustande, da zuerst die <em>cdsList</em> mit <em>Collections.reverse()</em> umgekehrt wird (<span class="math inline">𝒪(<em>g</em><sub><em>t</em></sub>)</span>) und dann nochmals in <span class="math inline">𝒪(<em>g</em><sub><em>t</em></sub>)</span> durchlaufen wird, um die in den <em>CodingDnaSequence</em> Objekten gespeicherte Position anzupassen. Dann werden für jedes Gen <span class="math inline"><em>g</em></span> die Introns generiert. Dies geschieht ebenfalls in <br /><span class="math display">𝒪(<em>g</em> ⋅ <em>g</em><sub><em>t</em></sub> ⋅ <em>t</em><sub><em>c</em></sub>)</span><br /> Die <em>ES-SE</em> werden in der <em>getEvents()</em> Methode berechnet. Dafür müssen für alle Gene alle Introns und alle Transkripte überprüft werden. Also schon mal <span class="math inline">𝒪(<em>g</em> ⋅ <em>g</em><sub><em>i</em></sub> ⋅ <em>g</em><sub><em>t</em></sub>)</span>. Hier ist <span class="math inline"><em>g</em><sub><em>i</em></sub></span> die größte Anzahl an Introns von allen Genen und <span class="math inline"><em>g</em><sub><em>t</em></sub></span> wieder die größte Anzahl an Transkripten aller Gene. Alle anderen Operationen sind konstant in ihrer Komplexität, da bei ihnen lediglich bereits existente Werte in <em>HashMaps</em> oder Objekten abgefragt werden. Nur falls ein <em>WT</em> entdeckt wird, wird in einem <em>for loop</em> über die <em>CodingDnaSequence</em>’s zwischen <span class="math inline"><em>C</em></span> und <span class="math inline"><em>D</em></span> (siehe <a href="#sec:problem" data-reference-type="ref" data-reference="sec:problem">1</a>. ES-SE Definition) iteriert. Sei <span class="math inline"><em>m</em><em>S</em><em>E</em></span> (= maxSkippedExons) also die von allen <em>ES-SE</em> eines Genoms maximale Anzahl an übersprungenen Exons, so wäre die gesamte Komplexität von (B): <br /><span class="math display">$$(B) \hspace{1em} \mathcal{O}(2 \cdot (g \cdot g_{t} \cdot t_{c}) + g \cdot g_{i} \cdot g_{t} \cdot mSE) = \mathcal{O}(g \cdot g_{t} \cdot t_{c} + g \cdot g_{i} \cdot g_{t} \cdot mSE)$$</span><br /></p></li>
+<li><p><strong>Erstellen der <em>&lt;out&gt;.tsv</em> Datei</strong></p>
+<p>Hat eine Komplexität von <br /><span class="math display">(<em>C</em>)  𝒪(<em>E</em>)</span><br /> , wenn <span class="math inline"><em>E</em></span> die Menge aller <em>ES-SE</em> ist.</p></li>
+</ol>
+<p>Zusammenfassend also eine Gesamtkomplexität von: <br /><span class="math display">(<em>A</em>) + (<em>B</em>) + (<em>C</em>) = 𝒪(<em>m</em><sup>2</sup> + <em>g</em> ⋅ <em>g</em><sub><em>t</em></sub> ⋅ <em>t</em><sub><em>c</em></sub> + <em>g</em> ⋅ <em>g</em><sub><em>i</em></sub> ⋅ <em>g</em><sub><em>t</em></sub> ⋅ <em>m</em><em>S</em><em>E</em> + <em>E</em>) ∈ 𝒪(<em>m</em><sup>2</sup>)</span><br /> , da <span class="math inline"><em>m</em><sup>2</sup> &gt; <em>g</em> ⋅ <em>g</em><sub><em>t</em></sub> ⋅ <em>t</em><sub><em>c</em></sub></span> und <span class="math inline"><em>m</em><sup>2</sup> &gt; <em>g</em> ⋅ <em>g</em><sub><em>i</em></sub> ⋅ <em>g</em><sub><em>t</em></sub> ⋅ <em>m</em><em>S</em><em>E</em> + <em>E</em></span>. Das bedeutet, dass die Kosten der Gesamtoperation im Wesentlichen durch das Einlesen und Strukturieren der Daten (Teil A) dominiert werden, wenn man davon ausgeht, dass <span class="math inline"><em>m</em></span> in der Praxis größer als <span class="math inline"><em>g</em></span>, <span class="math inline"><em>g</em><sub><em>t</em></sub></span>, <span class="math inline"><em>t</em><sub><em>c</em></sub></span>, <span class="math inline"><em>g</em><sub><em>i</em></sub></span> und <span class="math inline"><em>m</em><em>S</em><em>E</em></span> ist.</p>
+<h2 id="korrektheit">Korrektheit</h2>
+<p>In der Einleseroutine werden alle relevanten Zeilen verarbeitet und das Genom korrekt Initialisiert, sofern die Struktur von dem <em>GTF</em> den <a href="https://asia.ensembl.org/info/website/upload/gff.html">offiziellen Konventionen</a> folgt und die jeweiligen <em>CodingDnaSequence</em>’s in korrekter Reihenfolge (je nach <em>"-"/"+"</em> Strang) vorliegen. Zudem werden, falls es keine <em>"protein_id"</em> für eine gegebene Zeile gibt, nach der <em>"ccdsid"</em> gesucht und falls es diese nicht gibt, wird die <em>"protein_id"</em> mit <em>"NaN"</em> überschrieben. So werden alle Zeilen, die <em>"CDS"</em> in ihrer dritten Spalte stehen haben, genutzt, um das Genom aufzufüllen. Für das Errechnen der <em>ES-SE</em> in Schritt (B) gilt folgendes: Alle möglichen Introns in einem Gen werden überprüft und für jedes Intron werden alle Transkripte des jeweiligen Gens auf bei <span class="math inline"><em>I</em><sub><em>S</em></sub> − 1</span> endende und bei <span class="math inline"><em>I</em><sub><em>E</em></sub> + 1</span> startende <em>CodingDnaSequence</em>’s <span class="math inline"><em>A</em>, <em>B</em></span> abgefragt. Für jeden <em>SV</em> oder <em>WT</em> Kandidaten wird anschließend geschaut, ob es zwischen <span class="math inline"><em>A</em></span> und <span class="math inline"><em>B</em></span> weitere <em>CodingDnaSequence</em>’s gibt und je nach dem ein <em>ES-SE</em> entdeckt oder nicht. So ist das Programm unter der Annahme, dass die <em>GTF</em>-Datei fehlerfrei ist, korrekt.</p>
+<h2 id="benchmarking">Benchmarking</h2>
+<p>Für das Benchmarking wird jeweils <em>/mnt/biosoft/praktikum/genprakt/gtfs/Homo_sapiens.GRCh38.86.gtf</em> verwendet, da sie die größte <em>GTF</em>-Datei mit <span class="math inline">1.4<em>G</em><em>B</em></span> ist. Die zwei <em>JARs</em> (<span class="math inline"><em>M</em></span> und <span class="math inline"><em>L</em></span>) aus unserer Gruppe wurden jeweils 30 Mal ausgeführt und davon dann ein Durchschnitt errechnet.</p>
+<figure>
+<img src="./plots/benchmark_time.jpg" id="fig:-plots-benchmark_time-jpg" style="width:80.0%" alt="" /><figcaption>Methoden Durchschnittslaufzeit der Schritte A, B, C in ms nach 30 facher Ausführung auf Hardware: <em>AMD Ryzen 7 PRO 4750U with Radeon Graphics (16) @ 1.700GHz</em></figcaption>
+</figure>
+<p>In Abbildung <a href="#fig:-plots-benchmark_time-jpg" data-reference-type="ref" data-reference="fig:-plots-benchmark_time-jpg">1</a> ist eindeutig zu sehen, wie das Einlesen und Initialisieren der Datenstruktur aus Schritt (A), die Dominante Komponente beider <em>JARs</em>, mit <span class="math inline">6721<em>m</em><em>s</em></span> und <span class="math inline">26977<em>m</em><em>s</em></span> bildet, während die Generierung der <em>ES-SE</em> lediglich <span class="math inline">262<em>m</em><em>s</em></span> und <span class="math inline">498<em>m</em><em>s</em></span> benötigt. Für die <em>Memory Allocations</em> wurde der in <em>IntelliJ</em> zur Verfügung gestellter <em>Profiler</em> verwendet. Wichtig ist hierbei der Unterschied zwischen <em>RAM</em> und <em>Memory Allocations</em>: Der <em>Profiler</em> erfasst, wie viel Speicher ein Programm insgesamt anfordert, auch wenn ein Großteil davon später wieder durch den <em>Garbage Collector</em> freigegeben wird. Der <em>Profiler</em> gibt also eher eine Obergrenze des Speicherverbrauchs an, nicht den exakten <em>RAM</em>-Verbrauch. Der Schritt (A) ist auch hier dominant und fordert in <em>JAR</em> <span class="math inline"><em>M</em></span> insgesamt <span class="math inline">10.33<em>G</em><em>B</em></span> an Speicher an. Von diesen <span class="math inline">10.33<em>G</em><em>B</em></span> werden alleine <span class="math inline">6.72<em>G</em><em>B</em></span> von der Methode <em>String.split()</em> gefordert. <em>JAR</em> <span class="math inline"><em>L</em></span> hingegen benötigt <span class="math inline">65.32<em>G</em><em>B</em></span> an Memory Allocations, wobei der Hauptteil dieses Volumens (ca. <span class="math inline">60<em>G</em><em>B</em></span>) für die Methode <em>String.replaceAll()</em> aufgewendet wird. Für die Berechnung der <em>ES-SE</em> werden lediglich <span class="math inline">288.11<em>M</em><em>B</em></span> (<span class="math inline"><em>M</em></span>) und <span class="math inline">296.91<em>M</em><em>B</em></span> (<span class="math inline"><em>L</em></span>) in Anspruch genommen. Die starken Diskrepanzen in Schritt (A) liegen daran, dass die <em>JAR</em> <span class="math inline"><em>L</em></span> alle Zeilen mit dem <em>Parser</em> einließt und von diesen jedes mal die <em>attributes</em> vollständig in einer Datenstruktur abspeichert. Die Methode, die die <em>attributes</em> in <span class="math inline"><em>L</em></span> verarbeitet, ruft für jedes Attribut-Paar (<em>key</em>, <em>val</em>), die Methode <em>String.replaceAll("\"")</em> auf, welche teuer in Laufzeit und <em>Memory Allocations</em> ist. Da es in <em>/mnt/biosoft/praktikum/genprakt/gtfs/Homo_sapiens.GRCh38.86.gtf</em> insgesamt 2.575.498 Einträge gibt und pro Entrag jeweils mehrere Attribute, wird <em>String.replaceAll()</em> extrem häufig aufgerufen. Zusätzlich werden die Attibute in <em>HashMap</em>’s gespeichert, was ein zusätzlicher Faktor ist. In <em>JAR</em> <span class="math inline"><em>M</em></span> werden die Zeilen wie in <a href="#sec:logik" data-reference-type="ref" data-reference="sec:logik">2.1</a> beschreiben nur dann tatsächlich bearbeitet, wenn sie einen <em>"exon"</em> oder <em>"CDS"</em> Eintrag beinhalten, zudem werden die <em>attributes</em> effizienter verarbeitet. Somit ist der <em>Parser</em> aus <span class="math inline"><em>M</em></span> zwar schneller, jedoch weniger versatil für andere Probleminstanzen.</p>
+<h1 id="sec:res">Ergebnisse</h1>
+<p>Für die Analyse wurde die <em>GTF</em>-Datei <em>/mnt/biosoft/praktikum/genprakt/gtfs/Saccharomyces_cerevisiae.R64-1-1.75.gtf</em> ausgelassen, da es hier zu keinen <em>ES-SE</em> gekommen ist. Die Ursache dafür ist wahrscheinlich, dass es, obwohl es in der Hefe auch zum Spleißen kommt, in der gegebenen <em>GTF</em>-Datei keine protein-kodierenden Transkripte mit Splicing gab. In der Hefe gibt es insgesamt sehr wenige Introns (ca. 300), verglichen mit (<span class="math inline"> &gt; 140.000</span>) in dem Menschen (<span class="citation" data-cites="doi:10.1073/pnas.0610354104"></span>), was die Abwesenheit von <em>ES-SE</em> in <em>Saccharomyces_cerevisiae.R64-1-1.75.gtf</em> zusätzlich erklärt. Die <em>GTF</em>-Dateien und die dazugehörigen Ergebnisse werden ab jetzt mit den folgenden IDs aus Tabelle <a href="#tab:label" data-reference-type="ref" data-reference="tab:label">1</a> bezeichnet:</p>
+<div id="tab:label">
+<table>
+<caption>Liste der verwendeten <em>GTF</em>-Dateien</caption>
+<thead>
+<tr class="header">
+<th style="text-align: left;"><strong>ID</strong></th>
+<th style="text-align: left;"><strong><em>GTF</em>-Datei</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">h.ens.67</td>
+<td style="text-align: left;">Homo_sapiens.GRCh37.67.gtf</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">h.ens.75</td>
+<td style="text-align: left;">Homo_sapiens.GRCh37.75.gtf</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">h.ens.86</td>
+<td style="text-align: left;">Homo_sapiens.GRCh38.86.gtf</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">h.ens.90</td>
+<td style="text-align: left;">Homo_sapiens.GRCh38.90.gtf</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">h.ens.93</td>
+<td style="text-align: left;">Homo_sapiens.GRCh38.93.gtf</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">m.ens.75</td>
+<td style="text-align: left;">Mus_musculus.GRCm38.75.gtf</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">h.gc.10</td>
+<td style="text-align: left;">gencode.v10.annotation.gtf</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">h.gc.25</td>
+<td style="text-align: left;">gencode.v25.annotation.gtf</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Als erstes wird die Anzahl an aller protein-kodierenden Gene einer <em>GTF</em> mit der Anzahl an Genen mit <em>ES-SE</em> und der Gesamtanzahl an <em>ES-SE</em> verglichen:</p>
+<figure>
+<img src="./plots/genes.jpg" id="fig:-plots-genes-jpg" style="width:80.0%" alt="" /><figcaption>Vergleich zwischen Gene Gesamt, Gene mit <em>ES-SE</em> und <em>ES-SE</em> Gesamt pro <em>GTF</em></figcaption>
+</figure>
+<p>In Abbildung <a href="#fig:-plots-genes-jpg" data-reference-type="ref" data-reference="fig:-plots-genes-jpg">2</a> sieht man, wie die Anzahl an Genen in den verschiedenen <em>GTF</em>-Dateien des Menschen in einem Intervall von <span class="math inline">[20.320; 23.393]</span> variieren. Dies liegt daran, dass die <em>GTF</em>-Dateien jeweils von unterschiedlichen Assemblies und Annotations Versionen stammen, welche beide einen starken Einfluss auf die resultierende <em>GTF</em> haben (und somit auch auf das Ergebnis der <em>JAR</em>). Wie zu erwarten, hat bei den zum Menschen zugehörigen <em>GTF</em>-Dateien, die mit den meisten Genen auch die meisten <em>ES-SE</em>. Die Dateien <em>"h.gc.25"</em>, <em><strong>"h.ens.67"</strong></em>, <em>"h.ens.86"</em>, <em>"h.ens.90"</em>, <em>"h.ens.93"</em> haben alle eine sehr ähnliche Verteilung der <em>"ES-SE Gesamt"</em> und <em>"Gene mit ES-SE"</em> Kategorie, obwohl die <em>GTF</em>-Datei von <em><strong>"h.ens.67"</strong></em> mehr Gene beinhaltet, als die <em>vier anderen</em> <em>GTF</em>-Dateien. <em>"h.gc.10"</em> scheint am wenigsten <em>Gene mit ES-SE</em> und <em>"ES-SE Gesamt"</em> zu besitzen. Bei der Maus wiederum gibt es vergleichsweise wenige <em>ES-SE</em>, obwohl es insgesamt fast genau so viele protein-kodierende Gene gibt (23.119) wie in <em>"h.ens.75"</em> (23.393).</p>
+<p>Unter Einbezug der Abbildungen <a href="#fig:-plots-skipped_bases-jpg" data-reference-type="ref" data-reference="fig:-plots-skipped_bases-jpg">3</a> und <a href="#fig:-plots-skipped_exons-jpg" data-reference-type="ref" data-reference="fig:-plots-skipped_exons-jpg">4</a>, sind die selben Trends zu beobachten, die sich in Abbildung <a href="#fig:-plots-genes-jpg" data-reference-type="ref" data-reference="fig:-plots-genes-jpg">2</a> bereits andeuten:</p>
+<figure>
+<img src="./plots/skipped_bases.jpg" id="fig:-plots-skipped_bases-jpg" style="width:80.0%" alt="" /><figcaption>Kumulative Verteilung der übersprungenen Basen pro <em>GTF</em></figcaption>
+</figure>
+<p>Abbildung <a href="#fig:-plots-skipped_bases-jpg" data-reference-type="ref" data-reference="fig:-plots-skipped_bases-jpg">3</a> zeigt die kumulative Verteilung der übersprungenen Basen pro <em>GTF</em>. Alle Kurven zeigen einen charakteristischen S-förmigen Verlauf, was auf ein ähnliches grundlegendes Muster im <em>ES-SE</em> Verhalten hindeutet. Es bilden sich hauptsächlich zwei Plateaus aus: Ein höheres Plateau bei etwa 15.000-17.500 übersprungenen Basen für die vom Mensch stammenden <em>GTF</em>-Dateien und ein niedrigeres Plateau bei etwa 6.000 übersprungenen Basen für die Maus. Die zwei Ausreißer (<em>"h.ens.75"</em> und <em>"h.gc.10"</em>) des höheren Plateaus sind wieder auf die jeweils größte und kleinste Anzahl an Genen mit <em>ES-SE</em> innerhalb der Humanen <em>GTF</em>-Dateien zurückzuführen.</p>
+<p>Der steilste Anstieg der Kurven erfolgt im Bereich zwischen 100 und 1.000 übersprungenen Basen, was darauf hindeutet, dass die meisten <em>ES-SE</em> in diesem Größenbereich stattfinden. Die logarithmische Skalierung der x-Achse verdeutlicht, dass die <em>ES-SE</em> über mehrere Größenordnungen hinweg auftreten, von einzelnen Basen bis hin zu mehreren tausend Basen.</p>
+<figure>
+<img src="./plots/skipped_exons.jpg" id="fig:-plots-skipped_exons-jpg" style="width:80.0%" alt="" /><figcaption>Kumulative Verteilung der übersprungenen Exons pro <em>GTF</em></figcaption>
+</figure>
+<p>Abbildung <a href="#fig:-plots-skipped_exons-jpg" data-reference-type="ref" data-reference="fig:-plots-skipped_exons-jpg">4</a> zeigt die kumulative Verteilung der übersprungenen Exons pro <em>GTF</em>. Die meisten <em>ES-SE</em> betreffen lediglich ein oder zwei Exons und werden mit zunehmender Anzahl an übersprungenen Exons immer weniger. Diese Verteilung unterstreicht die biologische Relevanz von <em>Single-Exon-Skipping</em> als häufigstem Mechanismus im alternativen Spleißen und zeigt gleichzeitig, dass komplexere <em>ES-SE</em> mit mehreren Exons zwar vorkommen, aber deutlich seltener sind.</p>
+<table>
+<thead>
+<tr class="header">
+<th style="text-align: left;"><em><strong>Symbol</strong></em></th>
+<th style="text-align: left;"><em><strong>ID</strong></em></th>
+<th style="text-align: left;"><em><strong>Basen</strong></em></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">TTN</td>
+<td style="text-align: left;"><a href="https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000155657;r=2:178525989-178830802">ENSG00000155657</a></td>
+<td style="text-align: left;">26.106</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong>Ttn</strong></td>
+<td style="text-align: left;"><a href="https://asia.ensembl.org/Mus_musculus/Gene/Summary?db=core;g=ENSMUSG00000051747;r=2:76534324-76812891"><strong>ENSMUSG00000051747</strong></a></td>
+<td style="text-align: left;">24.843</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">TTN</td>
+<td style="text-align: left;"><a href="https://asia.ensembl.org/Homo_sapiens/Gene/Idhistory?g=ENSG00000283186">ENSG00000283186</a></td>
+<td style="text-align: left;">22.134</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">MUC4</td>
+<td style="text-align: left;"><a href="https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000145113;r=3:195746765-195811973">ENSG00000145113</a></td>
+<td style="text-align: left;">12.875</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">ADGRV1</td>
+<td style="text-align: left;"><a href="https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000164199;r=5:90529344-91164437">ENSG00000164199</a></td>
+<td style="text-align: left;">12.530</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">DYNC2H1</td>
+<td style="text-align: left;"><a href="https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000187240;r=11:103109410-103479863">ENSG00000187240</a></td>
+<td style="text-align: left;">10.182</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><strong>Fsip2</strong></td>
+<td style="text-align: left;"><a href="https://asia.ensembl.org/Mus_musculus/Gene/Summary?db=core;g=ENSMUSG00000075249;r=2:82773978-82839281"><strong>ENSMUSG00000075249</strong></a></td>
+<td style="text-align: left;">9.659</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">NBPF20</td>
+<td style="text-align: left;"><a href="https://asia.ensembl.org/Homo_sapiens/Gene/Idhistory?g=ENSG00000203832">ENSG00000203832</a></td>
+<td style="text-align: left;">9.573</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">FSIP2</td>
+<td style="text-align: left;"><a href="https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000188738;r=2:185738804-185833290">ENSG00000188738</a></td>
+<td style="text-align: left;">9.437</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">XIRP2</td>
+<td style="text-align: left;"><a href="https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000163092;r=2:166888480-167259753">ENSG00000163092</a></td>
+<td style="text-align: left;">9.379</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr class="header">
+<th style="text-align: left;"><em><strong>Symbol</strong></em></th>
+<th style="text-align: left;"><em><strong>ID</strong></em></th>
+<th style="text-align: left;"><em><strong>Exons</strong></em></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">TTN</td>
+<td style="text-align: left;"><a href="https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000155657;r=2:178525989-178830802">ENSG00000155657</a></td>
+<td style="text-align: left;">169</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong>Ttn</strong></td>
+<td style="text-align: left;"><a href="https://asia.ensembl.org/Mus_musculus/Gene/Summary?db=core;g=ENSMUSG00000051747;r=2:76534324-76812891"><strong>ENSMUSG00000051747</strong></a></td>
+<td style="text-align: left;">154</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">TTN</td>
+<td style="text-align: left;"><a href="https://asia.ensembl.org/Homo_sapiens/Gene/Idhistory?g=ENSG00000283186">ENSG00000283186</a></td>
+<td style="text-align: left;">121</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">NBPF20</td>
+<td style="text-align: left;"><a href="https://asia.ensembl.org/Homo_sapiens/Gene/Idhistory?g=ENSG00000203832">ENSG00000203832.5</a></td>
+<td style="text-align: left;">78</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">DYNC2H1</td>
+<td style="text-align: left;"><a href="https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000187240;r=11:103109410-103479863">ENSG00000187240</a></td>
+<td style="text-align: left;">70</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">NBPF10</td>
+<td style="text-align: left;"><a href="https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000271425;r=1:146064711-146229000">ENSG00000271425</a></td>
+<td style="text-align: left;">70</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">NBPF10</td>
+<td style="text-align: left;"><a href="https://asia.ensembl.org/Homo_sapiens/Gene/Idhistory?g=ENSG00000163386">ENSG00000163386</a></td>
+<td style="text-align: left;">60</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">ADGRV1</td>
+<td style="text-align: left;"><a href="https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000164199;r=5:90529344-91164437">ENSG00000164199</a></td>
+<td style="text-align: left;">59</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">NBPF20</td>
+<td style="text-align: left;"><a href="https://asia.ensembl.org/Homo_sapiens/Gene/Summary?db=core;g=ENSG00000162825;r=1:145289900-145425603">ENSG00000162825</a></td>
+<td style="text-align: left;">56</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">NBPF12</td>
+<td style="text-align: left;"><a href="https://asia.ensembl.org/Homo_sapiens/Gene/Idhistory?g=ENSG00000186275">ENSG00000186275</a></td>
+<td style="text-align: left;">52</td>
+</tr>
+</tbody>
+</table>
+<p>Die Tabellen in Abbildung <a href="#tab:top" data-reference-type="ref" data-reference="tab:top">[tab:top]</a> zeigen die Top-10 Gene basierend auf der Anzahl ihrer Basen (links) und Exons (rechts). Bei Genen mit identischen Transkripten, die sich nur durch Suffix-Annotationen aus verschiedenen GTF-Dateien unterscheiden (z.B. <em>ENSG00000155657</em> und<br />
+<em>ENSG00000155657.25</em>), wurde nur ein Repräsentant beibehalten, da diese Duplikate biologisch dasselbe Gen repräsentieren und sich lediglich in ihrer Versions-/Quellenkennzeichnung unterscheiden. Die Ränge in den Tabellen werden vor allem von Genen aus dem Menschen eingenommen, lediglich zwei Gene der <strong>Maus</strong> (<strong><em>"Ttn"</em></strong> und <strong><em>Fsip2</em></strong>) konkurrieren mit den anderen Genen der Rangliste. Dabei ist <em>"TTN"</em> in beiden Kategorien auf dem ersten Platz mit über 26000 übersprungenen Basen und fast 170 übersprungenen Exons. <em>"TTN"</em> und <strong><em>"Ttn"</em></strong> sind eng verwandte Gene, welche beide für das Protein <em>Titin</em> in den jeweiligen Organismen verantwortlich sind. <em>Titin</em> wiederum hat eine sehr wichtige Rolle in der Muskelkontraktion und dient zur Stabilisierung und Flexibilität der Sarkomere (<span class="citation" data-cites="uniprot_titin"></span>). Zudem sind <em>"TTN"</em> und <strong><em>"Ttn"</em></strong> jeweils mit 34.350 (<span class="citation" data-cites="uniprot_TTN"></span>) und 35.213 (<span class="citation" data-cites="uniprot_Ttn"></span>) extrem lange Proteine, was die hohe Position in der Rangliste erklärt. Ebenfalls aus der Tabelle hervorgehend ist, dass eine hohe Anzahl an übersprungenen Exons nicht unbedingt mit der Anzahl an übersprungenen Basen zusammenhängen muss. Während das Gen <em>"MUC4"</em> mit 12.875 Basen auf Rang vier der linken Tabelle steht, fehlt in der rechten Tabelle von ihm jede Spur. In den Tabellen ist auch auffällig, dass es oft das gleiche <strong><em>Gen Symbol</em></strong> mit unterschiedlicher <em><strong>ID</strong></em> und Werten gibt. Zum Beispiel ist <em>"TTN"</em> in beiden Tabellen jeweils zwei mal mit unterschiedlichen Werten gelistet. Diese Unterschiede entstehen durch die Verwendung von sechs verschiedenen <em>GTF</em>-Dateien für das menschliche Genom, die unterschiedliche Versionen und Qualitätsstufen der Genom Annotation repräsentieren. So kann ein Gen wie <em>"TTN"</em> in einer neueren oder detaillierteren <em>GTF</em>-Datei mehr annotierte Exons oder eine präzisere Basenzahl aufweisen als in einer älteren oder weniger umfassenden Annotation.</p>
+<p> </p>
+</body>
+</html>
